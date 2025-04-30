@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Settings,
   LogOut,
+  Building2,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
@@ -89,19 +90,19 @@ export function Sidebar({ className = "", activeItem = "Dashboard" }) {
           <CollapsibleNavItem
             icon={<Tag size={18} />}
             label="Discounts"
-            active={activeItem === "Discounts"}
+            active={activeItem === "Special Offers" || activeItem === "Promo Codes"}
             activeItem={activeItem}
           />
           <CollapsibleNavItem
-            icon={<Building size={18} />}
+            icon={<Building2 size={18} />}
             label="Halls"
-            active={activeItem === "Halls"}
+            active={activeItem === "Halls" || activeItem === "Booking Requests" || activeItem === "Gallery"}
             activeItem={activeItem}
           />
           <CollapsibleNavItem
             icon={<Utensils size={18} />}
             label="Dining"
-            active={activeItem === "Dining"}
+            active={activeItem === "Dinings" || activeItem === "Food Festivals" || activeItem === "Gallery"}
             activeItem={activeItem}
           />
           <CollapsibleNavItem
@@ -186,7 +187,11 @@ function CollapsibleNavItem({ icon, label, active = false, activeItem = "" }) {
           activeItem === "Unavailable" ||
           activeItem === "Tariffs" ||
           activeItem === "Special Tariffs" ||
-          activeItem === "Gallery")),
+          activeItem === "Gallery")) ||
+      (label === "Discounts" && (activeItem === "Special Offers" || activeItem === "Promo Codes")) ||
+      (label === "Halls" &&
+        (activeItem === "Booking Requests" || activeItem === "Halls" || activeItem === "Gallery")) ||
+      (label === "Dining" && (activeItem === "Dinings" || activeItem === "Food Festivals" || activeItem === "Gallery")),
   )
 
   // Determine menu items based on the label
@@ -202,20 +207,20 @@ function CollapsibleNavItem({ icon, label, active = false, activeItem = "" }) {
       ]
     } else if (label === "Discounts") {
       return [
-        { name: "Special Offers", href: "#" },
-        { name: "Promo Code", href: "#" },
+        { name: "Special Offers", href: "/discounts/offers" },
+        { name: "Promo Codes", href: "/discounts/promo-codes" },
       ]
     } else if (label === "Halls") {
       return [
-        { name: "Booking Requests", href: "#" },
-        { name: "Halls", href: "#" },
-        { name: "Gallery", href: "#" },
+        { name: "Booking Requests", href: "/halls/booking-requests" },
+        { name: "Halls", href: "/halls" },
+        { name: "Gallery", href: "/halls/gallery" },
       ]
     } else if (label === "Dining") {
       return [
-        { name: "Dinings", href: "#" },
-        { name: "Food Festivals", href: "#" },
-        { name: "Gallery", href: "#" },
+        { name: "Dinings", href: "/dining/dinings" },
+        { name: "Food Festivals", href: "/dining/food-festivals" },
+        { name: "Gallery", href: "/dining/gallery" },
       ]
     } else if (label === "Wellness") {
       return [
@@ -273,6 +278,12 @@ function CollapsibleNavItem({ icon, label, active = false, activeItem = "" }) {
                   (item.name === "Tariffs" && activeItem === "Tariffs") ||
                   (item.name === "Special Tariffs" && activeItem === "Special Tariffs") ||
                   (item.name === "Gallery" && activeItem === "Gallery") ||
+                  (item.name === "Special Offers" && activeItem === "Special Offers") ||
+                  (item.name === "Promo Codes" && activeItem === "Promo Codes") ||
+                  (item.name === "Booking Requests" && activeItem === "Booking Requests") ||
+                  (item.name === "Halls" && activeItem === "Halls") ||
+                  (item.name === "Dinings" && activeItem === "Dinings") ||
+                  (item.name === "Food Festivals" && activeItem === "Food Festivals") ||
                   (
                     item.name === "Rooms & Suites" &&
                       item.href === "/rooms-and-suites" &&
@@ -292,3 +303,5 @@ function CollapsibleNavItem({ icon, label, active = false, activeItem = "" }) {
     </div>
   )
 }
+
+export default Sidebar

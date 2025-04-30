@@ -132,14 +132,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
         </Button>
       </div>
 
-      <div className="text-sm text-gray-500">
-        Showing {Math.min((currentPage - 1) * 10 + 1, bookingsData.length)} -{" "}
-        {Math.min(currentPage * 10, bookingsData.length)} of {bookingsData.length}
-      </div>
+      <div className="text-sm text-gray-500">{/* This content is now handled by the parent component */}</div>
     </div>
   )
 }
-
-// This is just for TypeScript to recognize the variable
-// The actual data is in the bookings page
-const bookingsData = []
