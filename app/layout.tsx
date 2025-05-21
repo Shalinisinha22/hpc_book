@@ -1,12 +1,15 @@
 import "./globals.css"
 import { Toaster } from "@/components/toaster"
+import { ThemeProvider } from "@/components/theme-provider"
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        {children}
-        <Toaster />
+        <ThemeProvider>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   )

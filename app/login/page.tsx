@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuthStore } from "@/lib/auth-store"
+import { Toaster } from "@/components/toaster"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -43,6 +44,7 @@ export default function LoginPage() {
         setError(result.message || "Login failed")
       }
     } catch (err) {
+      console.error("Login error:", err)
       setError("An unexpected error occurred")
     } finally {
       setLoading(false)
@@ -87,6 +89,7 @@ export default function LoginPage() {
         setError(result.message || "Invalid OTP")
       }
     } catch (err) {
+      console.error("OTP login error:", err)
       setError("An unexpected error occurred")
     } finally {
       setLoading(false)
@@ -259,20 +262,29 @@ export default function LoginPage() {
           <h3 className="text-sm font-medium text-gray-700 mb-2">Demo Credentials</h3>
           <div className="space-y-1 text-xs text-gray-600">
             <div className="flex justify-between">
-              <span>Email:</span>
-              <span className="font-mono">admin@royalbihar.com</span>
+              <span>Admin:</span>
+              <span className="font-mono">admin@royalbihar.com / admin123</span>
             </div>
             <div className="flex justify-between">
-              <span>Password:</span>
-              <span className="font-mono">admin123</span>
+              <span>Front Office:</span>
+              <span className="font-mono">frontdesk@royalbihar.com / password123</span>
             </div>
             <div className="flex justify-between">
-              <span>OTP:</span>
-              <span className="font-mono">Any 6 digits (e.g., 123456)</span>
+              <span>HR:</span>
+              <span className="font-mono">hr@royalbihar.com / password123</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Banquet:</span>
+              <span className="font-mono">banquet@royalbihar.com / password123</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Accounts:</span>
+              <span className="font-mono">accounts@royalbihar.com / password123</span>
             </div>
           </div>
         </div>
       </div>
+      <Toaster />
     </div>
   )
 }

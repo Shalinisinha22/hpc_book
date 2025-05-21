@@ -1,25 +1,15 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/lib/auth-store"
-import { Sidebar } from "@/components/sidebar"
+import { Header } from "@/components/header"
+import { PermissionBasedSidebar } from "@/components/permission-based-sidebar"
 import { Toaster } from "@/components/toaster"
 
 export default function HallsLayout({ children }) {
   const router = useRouter()
-  const pathname = usePathname()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
-
-  // Determine the active item based on the current path
-  const getActiveItem = () => {
-    if (pathname === "/halls") {
-      return "Halls"
-    } else if (pathname === "/halls/booking-requests") {
-      return "Booking Requests"
-    }
-    return "Halls"
-  }
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -33,10 +23,13 @@ export default function HallsLayout({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar activeItem={getActiveItem()} />
-      <main className="flex-1">{children}</main>
-      <Toaster />
+    <div className="flex h-screen overflow-hidden">
+      <PermissionBasedSidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-y-auto bg-gray-50">{children}</main>
+        <Toaster />
+      </div>
     </div>
   )
 }

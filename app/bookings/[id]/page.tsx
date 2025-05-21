@@ -49,13 +49,90 @@ export default function BookingDetailsPage({ params }) {
       <div className="flex-1">
         <PageHeader />
 
-        <main className="p-4 md:p-6">
+        <main className="p-4 md:p-6 booking-details-content">
           <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-gray-900">Booking Details</h1>
               <Info className="h-5 w-5 text-orange-500" />
             </div>
-            <Button className="mt-2 sm:mt-0 bg-gold hover:bg-gold-dark" onClick={() => window.print()}>
+            <Button
+              className="mt-2 sm:mt-0 bg-gold hover:bg-gold-dark"
+              onClick={() => {
+                // Create a print-specific stylesheet
+                const style = document.createElement("style")
+                style.innerHTML = `
+                  @media print {
+                    body * {
+                      visibility: hidden;
+                    }
+                    .invoice-section, .invoice-section * {
+                      visibility: visible;
+                    }
+                    .invoice-section {
+                      position: absolute;
+                      left: 0;
+                      top: 0;
+                      width: 100%;
+                      padding: 20px;
+                      background-color: white;
+                    }
+                    @page {
+                      size: auto;
+                      margin: 10mm;
+                    }
+                    .no-print {
+                      display: none !important;
+                    }
+                    /* Invoice-specific print styles */
+                    .invoice-section table {
+                      width: 100%;
+                      border-collapse: collapse;
+                    }
+                    .invoice-section th, .invoice-section td {
+                      padding: 8px;
+                      text-align: left;
+                    }
+                    .invoice-section .bg-orange-100, .invoice-section .bg-orange-200, .invoice-section .bg-gray-100 {
+                      background-color: white !important;
+                      border: 1px solid #ddd;
+                    }
+                    .invoice-section .text-gold {
+                      color: #000 !important;
+                      font-weight: bold;
+                    }
+                  }
+                `
+                document.head.appendChild(style)
+
+                // Add print class to the invoice section
+                const invoiceSection = document.querySelector(".bg-white.rounded-lg.shadow-sm.p-6.mb-6")
+                if (invoiceSection) {
+                  invoiceSection.classList.add("invoice-section")
+                }
+
+                // Add no-print class to buttons and other elements
+                const noPrintElements = document.querySelectorAll(
+                  ".sidebar, .page-header, button, .grid.grid-cols-1.md\\:grid-cols-3",
+                )
+                noPrintElements.forEach((el) => {
+                  el.classList.add("no-print")
+                })
+
+                // Print and then clean up
+                window.print()
+
+                // Remove the style and classes after printing
+                setTimeout(() => {
+                  document.head.removeChild(style)
+                  if (invoiceSection) {
+                    invoiceSection.classList.remove("invoice-section")
+                  }
+                  noPrintElements.forEach((el) => {
+                    el.classList.remove("no-print")
+                  })
+                }, 1000)
+              }}
+            >
               <Printer className="mr-2 h-4 w-4" />
               PRINT
             </Button>

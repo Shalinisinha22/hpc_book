@@ -4,7 +4,17 @@ import { useState } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, User, Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Plus, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { AddHallForm } from "@/components/add-hall-form"
 
@@ -121,6 +131,8 @@ export default function HallsPage() {
   const [halls, setHalls] = useState(initialHalls)
   const [isAddHallOpen, setIsAddHallOpen] = useState(false)
   const [editingHall, setEditingHall] = useState(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [hallToDelete, setHallToDelete] = useState(null)
   const { toast } = useToast()
 
   const handleAddHall = (newHall) => {
@@ -164,8 +176,14 @@ export default function HallsPage() {
     })
   }
 
+  const showDeleteConfirmation = (hall) => {
+    setHallToDelete(hall)
+    setIsDeleteDialogOpen(true)
+  }
+
   const handleDeleteHall = (id) => {
     setHalls(halls.filter((hall) => hall.id !== id))
+    setIsDeleteDialogOpen(false)
     toast({
       title: "Hall deleted",
       description: "The hall has been deleted successfully.",
@@ -233,9 +251,12 @@ export default function HallsPage() {
                   <td className="py-3 px-4 text-center">
                     <div className="flex justify-center space-x-2">
                       <button onClick={() => handleEditHall(hall)} className="p-1 hover:bg-gray-100 rounded-full">
-                        <User size={16} />
+                        <Edit size={16} />
                       </button>
-                      <button onClick={() => handleDeleteHall(hall.id)} className="p-1 hover:bg-gray-100 rounded-full">
+                      <button
+                        onClick={() => showDeleteConfirmation(hall)}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -259,6 +280,25 @@ export default function HallsPage() {
           />
         </DialogContent>
       </Dialog>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this hall?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete {hallToDelete?.name}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => hallToDelete && handleDeleteHall(hallToDelete.id)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

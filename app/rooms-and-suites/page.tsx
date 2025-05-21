@@ -22,6 +22,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Pagination } from "@/components/pagination"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Room {
   id: number
@@ -101,6 +111,9 @@ export default function RoomsAndSuitesPage() {
     image: "",
   })
 
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [roomToDelete, setRoomToDelete] = useState<Room | null>(null)
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
@@ -166,6 +179,8 @@ export default function RoomsAndSuitesPage() {
   const handleDeleteRoom = (id: number) => {
     const updatedRooms = rooms.filter((room) => room.id !== id)
     setRooms(updatedRooms)
+    setIsDeleteDialogOpen(false)
+    setRoomToDelete(null)
   }
 
   const openEditDialog = (room: Room) => {
@@ -202,6 +217,11 @@ export default function RoomsAndSuitesPage() {
     if (editImageInputRef.current) {
       editImageInputRef.current.value = ""
     }
+  }
+
+  const openDeleteDialog = (room: Room) => {
+    setRoomToDelete(room)
+    setIsDeleteDialogOpen(true)
   }
 
   return (
@@ -482,7 +502,7 @@ export default function RoomsAndSuitesPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-red-500"
-                                  onClick={() => handleDeleteRoom(room.id)}
+                                  onClick={() => openDeleteDialog(room)}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -685,6 +705,27 @@ export default function RoomsAndSuitesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this room?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to delete &quot;{roomToDelete?.title}&quot;. This action cannot be undone and all data
+              associated with this room will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRoomToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-500 hover:bg-red-600 text-white"
+              onClick={() => roomToDelete && handleDeleteRoom(roomToDelete.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

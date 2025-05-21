@@ -1,13 +1,31 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Copy, Printer, FileSpreadsheet, ChevronDown, ChevronUp, MoreHorizontal, Check, X, Eye } from "lucide-react"
+import { Copy, Printer, FileSpreadsheet, ChevronDown, ChevronUp, MoreHorizontal, Eye, Trash } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Pagination } from "@/components/pagination"
 import { useToast } from "@/components/ui/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Sample data matching the screenshot
 const initialBookingRequests = [
@@ -153,6 +171,9 @@ export default function BookingRequestsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState({ key: "id", direction: "ascending" })
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState(null)
 
   const itemsPerPage = 10
   const totalPages = Math.ceil(filteredRequests.length / itemsPerPage)
@@ -196,32 +217,33 @@ export default function BookingRequestsPage() {
     return sortConfig.direction === "ascending" ? <ChevronUp size={14} /> : <ChevronDown size={14} />
   }
 
-  // Handle actions
-  const handleAction = (action, request) => {
-    switch (action) {
-      case "view":
-        toast({
-          title: "Viewing Request Details",
-          description: `Viewing details for booking request #${request.id} by ${request.fullName}`,
-        })
-        break
-      case "approve":
-        toast({
-          title: "Request Approved",
-          description: `Booking request #${request.id} has been approved`,
-          variant: "success",
-        })
-        break
-      case "reject":
-        toast({
-          title: "Request Rejected",
-          description: `Booking request #${request.id} has been rejected`,
-          variant: "destructive",
-        })
-        break
-      default:
-        break
-    }
+  // Handle view action
+  const handleView = (request) => {
+    setSelectedRequest(request)
+    setViewDialogOpen(true)
+  }
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = (request) => {
+    setSelectedRequest(request)
+    setDeleteDialogOpen(true)
+  }
+
+  // Handle actual delete
+  const handleDelete = () => {
+    if (!selectedRequest) return
+
+    const updatedRequests = bookingRequests.filter((item) => item.id !== selectedRequest.id)
+    setBookingRequests(updatedRequests)
+
+    toast({
+      title: "Request Deleted",
+      description: `Booking request #${selectedRequest.id} has been deleted`,
+      variant: "destructive",
+    })
+
+    setDeleteDialogOpen(false)
+    setSelectedRequest(null)
   }
 
   // Handle export actions
@@ -246,6 +268,11 @@ export default function BookingRequestsPage() {
         break
     }
   }
+
+  useEffect(() => {
+    // Reset to first page when search or filter changes
+    setCurrentPage(1)
+  }, [searchTerm, sortConfig])
 
   return (
     <div className="space-y-6">
@@ -359,14 +386,11 @@ export default function BookingRequestsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleAction("view", request)}>
+                        <DropdownMenuItem onClick={() => handleView(request)}>
                           <Eye size={14} className="mr-2" /> View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleAction("approve", request)}>
-                          <Check size={14} className="mr-2" /> Approve
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleAction("reject", request)}>
-                          <X size={14} className="mr-2" /> Reject
+                        <DropdownMenuItem onClick={() => handleDeleteConfirm(request)} className="text-red-600">
+                          <Trash size={14} className="mr-2" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -400,6 +424,82 @@ export default function BookingRequestsPage() {
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
       </div>
+
+      {/* View Details Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Booking Request Details</DialogTitle>
+            <DialogDescription>Viewing details for booking request #{selectedRequest?.id}</DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">ID:</span>
+                <span className="col-span-2">{selectedRequest.id}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Requested On:</span>
+                <span className="col-span-2">{selectedRequest.requestedOn}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Venue Name:</span>
+                <span className="col-span-2 text-green-600 font-medium">{selectedRequest.venueName}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Preferred Date:</span>
+                <span className="col-span-2">{selectedRequest.prefDate}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Number of Guests:</span>
+                <span className="col-span-2">{selectedRequest.noOfGuests}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Full Name:</span>
+                <span className="col-span-2 text-blue-600 font-medium">{selectedRequest.fullName}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Mobile:</span>
+                <span className="col-span-2">{selectedRequest.mobile}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Email:</span>
+                <span className="col-span-2 text-blue-600">{selectedRequest.email}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Time of Event:</span>
+                <span className="col-span-2">{selectedRequest.timeOfEvent}</span>
+              </div>
+              <div className="grid grid-cols-3 items-center gap-4">
+                <span className="font-medium">Purpose:</span>
+                <span className="col-span-2">{selectedRequest.purpose}</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete booking request #{selectedRequest?.id} by {selectedRequest?.fullName}. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

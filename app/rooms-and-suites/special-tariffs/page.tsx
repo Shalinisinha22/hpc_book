@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Info, Trash2, Calendar } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -62,6 +62,12 @@ export default function SpecialTariffsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 7
   const totalPages = Math.ceil(specialTariffs.length / itemsPerPage)
+
+  // Add this effect after the other state declarations
+  useEffect(() => {
+    // Reset to first page when data changes
+    setCurrentPage(1)
+  }, [specialTariffs.length])
 
   // Get current page data
   const getCurrentPageData = () => {
@@ -150,6 +156,12 @@ export default function SpecialTariffsPage() {
     if (tariffToDelete !== null) {
       const updatedTariffs = specialTariffs.filter((tariff) => tariff.id !== tariffToDelete)
       setSpecialTariffs(updatedTariffs)
+
+      // If the current page becomes empty after deletion, go back a page if possible
+      const newTotalPages = Math.ceil(updatedTariffs.length / itemsPerPage)
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages)
+      }
 
       toast({
         title: "Special tariff deleted",

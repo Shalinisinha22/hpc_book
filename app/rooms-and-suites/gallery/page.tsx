@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Info, Trash2, ImageIcon } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -62,6 +62,11 @@ export default function GalleryPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
   const totalPages = Math.ceil(galleryImages.length / itemsPerPage)
+
+  // Add this effect after the other state declarations
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [galleryImages.length]) // Reset to page 1 when the gallery items change
 
   // Room types
   const roomTypes = [
@@ -156,6 +161,12 @@ export default function GalleryPage() {
     if (imageToDelete !== null) {
       const updatedGallery = galleryImages.filter((img) => img.id !== imageToDelete)
       setGalleryImages(updatedGallery)
+
+      // If we're on a page that no longer exists after deleting, go to the last page
+      const newTotalPages = Math.ceil(updatedGallery.length / itemsPerPage)
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages)
+      }
 
       toast({
         title: "Image deleted",

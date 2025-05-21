@@ -1,16 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowUp, ArrowDown, MoreHorizontal, Filter } from "lucide-react"
+import { ArrowUp, ArrowDown, MoreHorizontal } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SalesChart } from "@/components/sales-chart"
 import { OrdersChart } from "@/components/orders-chart"
-import { Sidebar } from "@/components/sidebar"
 import { RecentBookings } from "@/components/recent-bookings"
-import { DateRangePicker } from "@/components/date-range-picker"
 import { PageHeader } from "@/components/page-header"
 
 export default function Dashboard() {
@@ -22,7 +20,6 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar - hidden on mobile */}
-      <Sidebar className="hidden md:flex" activeItem="Dashboard" />
 
       {/* Main Content */}
       <div className="flex-1">
@@ -33,16 +30,6 @@ export default function Dashboard() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
               <p className="text-gray-500 mt-1">Welcome back, DG Crux</p>
-            </div>
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
-              <Button variant="outline" size="sm" className="text-gray-500 border-gray-200">
-                <Filter className="h-4 w-4 mr-2" />
-                Filter
-              </Button>
-              <Button size="sm" className="bg-gold hover:bg-gold-dark">
-                Export
-              </Button>
             </div>
           </div>
 

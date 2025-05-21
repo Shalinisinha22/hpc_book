@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Eye, Printer, FileSpreadsheet, FileText, Info } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,7 @@ import { Sidebar } from "@/components/sidebar"
 import { PageHeader } from "@/components/page-header"
 import { Pagination } from "@/components/pagination"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { toast } from "@/components/ui/use-toast"
 
 export default function MembersPage() {
   // Search state
@@ -18,6 +19,15 @@ export default function MembersPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  const [selectedRows, setSelectedRows] = useState({})
+  const [selectAll, setSelectAll] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  useEffect(() => {
+    // Reset to first page when search query changes
+    setCurrentPage(1)
+  }, [searchQuery])
 
   // Filter members based on search query
   const filteredMembers = membersData.filter(
@@ -40,6 +50,439 @@ export default function MembersPage() {
   const handlePageChange = (page) => {
     setCurrentPage(page)
   }
+
+  // Handle row selection
+  const toggleRowSelection = (memberId) => {
+    setSelectedRows((prev) => ({
+      ...prev,
+      [memberId]: !prev[memberId],
+    }))
+  }
+
+  // Handle select all
+  const toggleSelectAll = () => {
+    const newSelectAll = !selectAll
+    setSelectAll(newSelectAll)
+
+    const newSelectedRows = {}
+    getCurrentPageData().forEach((member) => {
+      newSelectedRows[member.id] = newSelectAll
+    })
+
+    setSelectedRows(newSelectedRows)
+  }
+
+  // Get selected members
+  const getSelectedMembers = () => {
+    return getCurrentPageData().filter((member) => selectedRows[member.id])
+  }
+
+  // Handle batch print
+  const handleBatchPrint = async () => {
+    try {
+      const selectedMembers = getSelectedMembers()
+
+      // If no rows are selected, show a message
+      if (selectedMembers.length === 0) {
+        toast({
+          title: "No rows selected",
+          description: "Please select at least one row to print.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setIsPrinting(true)
+
+      // Create a new window for printing
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) {
+        toast({
+          title: "Print failed",
+          description: "Pop-up blocker may be preventing the print window from opening.",
+          variant: "destructive",
+        })
+        setIsPrinting(false)
+        return
+      }
+
+      // Start building the HTML content
+      let printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Member Details - Batch Print</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+          .member-container { page-break-after: always; margin-bottom: 30px; }
+          .member-container:last-child { page-break-after: avoid; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+          .logo { font-weight: bold; font-size: 24px; color: #b8860b; }
+          .section { margin-bottom: 20px; }
+          .section-title { font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+          .detail-row { display: flex; margin-bottom: 5px; }
+          .detail-label { width: 150px; font-weight: bold; }
+          .detail-value { flex: 1; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+          @media print {
+            body { padding: 0; margin: 0; }
+            .member-container { page-break-after: always; }
+            .member-container:last-child { page-break-after: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+    `
+
+      // Add each member to the print content
+      selectedMembers.forEach((member, index) => {
+        printContent += `
+        <div class="member-container">
+          <div class="header">
+            <div class="logo">The Royal Bihar</div>
+            <div>Member ID: ${member.id}</div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Member Details</div>
+            <div class="detail-row">
+              <div class="detail-label">Name:</div>
+              <div class="detail-value">${member.name}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Email:</div>
+              <div class="detail-value">${member.email}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Phone:</div>
+              <div class="detail-value">${member.phone}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Join Date:</div>
+              <div class="detail-value">${member.joinDate}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Points:</div>
+              <div class="detail-value">${member.points}</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Membership Benefits</div>
+            <ul>
+              <li>Exclusive access to member-only events</li>
+              <li>10% discount on all room bookings</li>
+              <li>Early check-in and late check-out when available</li>
+              <li>Complimentary welcome drink on arrival</li>
+              <li>Access to member lounge</li>
+            </ul>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Terms & Conditions</div>
+            <p>Membership is valid for one year from the date of joining. Points can be redeemed for room upgrades, dining, and spa services. The Royal Bihar reserves the right to modify the membership benefits at any time.</p>
+          </div>
+
+          <div class="footer">
+            <p>AIIMS Road, Walmi, Patna Pin-801505</p>
+            <p>Email: members@theroyalbihar.com | Phone: +91-612-2345678</p>
+            <p>This document was generated on ${new Date().toLocaleDateString()} and is valid without the signature and seal.</p>
+          </div>
+        </div>
+      `
+
+        // Add page break for all except the last member
+        if (index < selectedMembers.length - 1) {
+          printContent += `<div style="page-break-after: always;"></div>`
+        }
+      })
+
+      // Close the HTML content
+      printContent += `
+      </body>
+      </html>
+    `
+
+      // Write the content to the new window
+      printWindow.document.open()
+      printWindow.document.write(printContent)
+      printWindow.document.close()
+
+      // Wait for the content to load before printing
+      printWindow.onload = () => {
+        printWindow.print()
+        // Close the window after printing (optional)
+        printWindow.onafterprint = () => {
+          printWindow.close()
+        }
+        setIsPrinting(false)
+      }
+
+      // Fallback in case onload doesn't fire
+      setTimeout(() => {
+        if (isPrinting) {
+          printWindow.print()
+          setIsPrinting(false)
+        }
+      }, 1500)
+
+      // Show success message
+      toast({
+        title: "Print prepared",
+        description: `${selectedMembers.length} member(s) prepared for printing.`,
+        variant: "default",
+      })
+    } catch (error) {
+      console.error("Failed to print members:", error)
+      toast({
+        title: "Print failed",
+        description: "There was an error preparing the members for printing.",
+        variant: "destructive",
+      })
+      setIsPrinting(false)
+    }
+  }
+
+  // Handle Excel export
+  const handleExcelExport = () => {
+    try {
+      // Create a new workbook
+      const XLSX = require("xlsx")
+      const workbook = XLSX.utils.book_new()
+
+      // Convert the data to a worksheet format
+      const worksheet = XLSX.utils.json_to_sheet(
+        filteredMembers.map((member) => ({
+          ID: member.id,
+          Name: member.name,
+          Email: member.email,
+          Phone: member.phone,
+          Points: member.points,
+          "Join Date": member.joinDate,
+        })),
+      )
+
+      // Add the worksheet to the workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Members")
+
+      // Generate Excel file
+      const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
+
+      // Create a Blob from the buffer
+      const blob = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      })
+
+      // Create a download link
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+
+      // Set the filename with date
+      const today = new Date()
+      const dateStr = today.toISOString().split("T")[0]
+      const timeStr = today.toTimeString().split(" ")[0].replace(/:/g, "-")
+      link.download = `members_export_${dateStr}_${timeStr}.xlsx`
+
+      // Trigger the download
+      document.body.appendChild(link)
+      link.click()
+
+      // Clean up
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: "Excel export successful!",
+        description: `${filteredMembers.length} member(s) exported to Excel.`,
+        variant: "default",
+      })
+    } catch (error) {
+      console.error("Failed to export Excel:", error)
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting the data to Excel.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Handle PDF export
+  const handlePdfExport = () => {
+    try {
+      const printWindow = window.open("", "_blank")
+
+      if (!printWindow) {
+        toast({
+          title: "Error",
+          description: "Could not open PDF window. Please check your popup blocker settings.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Get the current date and time for the report header
+      const currentDate = new Date().toLocaleDateString()
+      const currentTime = new Date().toLocaleTimeString()
+
+      // Create the HTML content for PDF
+      const pdfContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Members List - The Royal Bihar</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.5;
+              color: #333;
+              margin: 0;
+              padding: 20px;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+              padding-bottom: 10px;
+              border-bottom: 2px solid #ddd;
+            }
+            .logo {
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 5px;
+              color: #b8860b;
+            }
+            .title {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .subtitle {
+              font-size: 14px;
+              color: #666;
+            }
+            .date-time {
+              margin-top: 10px;
+              font-size: 12px;
+              color: #666;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 8px 12px;
+              text-align: left;
+            }
+            th {
+              background-color: #f5f5f5;
+              font-weight: bold;
+            }
+            tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              color: #666;
+              border-top: 1px solid #ddd;
+              padding-top: 10px;
+            }
+            .pdf-note {
+              text-align: center;
+              margin-top: 30px;
+              font-size: 14px;
+              color: #b8860b;
+              padding: 10px;
+              border: 1px dashed #b8860b;
+              background-color: #fff9e6;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">The Royal Bihar</div>
+            <div class="title">Members List</div>
+            <div class="subtitle">Complete list of registered members</div>
+            <div class="date-time">Generated on: ${currentDate} at ${currentTime}</div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Points</th>
+                <th>Join Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredMembers
+                .map(
+                  (member) => `
+                <tr>
+                  <td>${member.id}</td>
+                  <td>${member.name}</td>
+                  <td>${member.email}</td>
+                  <td>${member.phone}</td>
+                  <td>${member.points}</td>
+                  <td>${member.joinDate}</td>
+                </tr>
+              `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <div class="pdf-note">
+            <p>To save as PDF, please use your browser's "Print" function and select "Save as PDF" as the destination.</p>
+          </div>
+
+          <div class="footer">
+            <p>This is a system-generated report from The Royal Bihar Hotel Management System.</p>
+            <p>For any queries, please contact the system administrator.</p>
+          </div>
+
+          <script>
+            // Auto-trigger print dialog which can be used to save as PDF
+            window.onload = function() {
+              document.querySelector('.pdf-note').style.display = 'block';
+            };
+          </script>
+        </body>
+        </html>
+      `
+
+      // Write the content to the new window
+      printWindow.document.open()
+      printWindow.document.write(pdfContent)
+      printWindow.document.close()
+
+      toast({
+        title: "PDF export prepared",
+        description: "Use your browser's Save as PDF option in the print dialog to save the PDF.",
+      })
+    } catch (error) {
+      console.error("Failed to export PDF:", error)
+      toast({
+        title: "Export failed",
+        description: "There was an error preparing the PDF export.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Count selected rows
+  const selectedCount = Object.values(selectedRows).filter(Boolean).length
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -76,15 +519,30 @@ export default function MembersPage() {
           <Card className="bg-white shadow-sm border-gray-200 overflow-hidden">
             <div className="p-4 flex flex-wrap justify-between items-center border-b border-gray-200">
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="text-gray-700">
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-gray-700"
+                  onClick={handleBatchPrint}
+                  disabled={isPrinting || selectedCount === 0}
+                >
+                  {isPrinting ? (
+                    <>
+                      <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" />
+                      Printing...
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print {selectedCount > 0 ? `(${selectedCount})` : ""}
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" size="sm" className="text-gray-700">
+                <Button variant="outline" size="sm" className="text-gray-700" onClick={handleExcelExport}>
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Excel
                 </Button>
-                <Button variant="outline" size="sm" className="text-gray-700">
+                <Button variant="outline" size="sm" className="text-gray-700" onClick={handlePdfExport}>
                   <FileText className="h-4 w-4 mr-2" />
                   PDF
                 </Button>
@@ -108,7 +566,7 @@ export default function MembersPage() {
                 <thead>
                   <tr className="bg-gray-50 text-left">
                     <th className="px-4 py-3 w-10">
-                      <Checkbox />
+                      <Checkbox checked={selectAll} onCheckedChange={toggleSelectAll} />
                     </th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
@@ -120,9 +578,13 @@ export default function MembersPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {getCurrentPageData().map((member) => (
-                    <tr key={member.id} className="hover:bg-gray-50">
+                    <tr key={member.id} className={`hover:bg-gray-50 ${selectedRows[member.id] ? "bg-blue-50" : ""}`}>
                       <td className="px-4 py-3">
-                        <Checkbox />
+                        <Checkbox
+                          checked={selectedRows[member.id] || false}
+                          onCheckedChange={() => toggleRowSelection(member.id)}
+                          aria-label={`Select member ${member.id}`}
+                        />
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center">

@@ -6,19 +6,37 @@ import { Badge } from "@/components/ui/badge"
 import { Sidebar } from "@/components/sidebar"
 import { PageHeader } from "@/components/page-header"
 import { Pagination } from "@/components/pagination"
+import { Input } from "@/components/ui/input"
 
 export default function CancelBookingsPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
-  const totalPages = Math.ceil(cancelledBookingsData.length / itemsPerPage)
 
-  // Get current page data
+  // After the pagination state, add search state
+  const [searchQuery, setSearchQuery] = useState("")
+
+  // Update the getCurrentPageData function to include filtering by search
   const getCurrentPageData = () => {
+    const filtered = cancelledBookingsData.filter((booking) => {
+      if (!searchQuery) return true
+
+      // Search in relevant fields
+      return (
+        booking.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        booking.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        booking.holderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        booking.accountNo.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    })
+
     const startIndex = (currentPage - 1) * itemsPerPage
     const endIndex = startIndex + itemsPerPage
-    return cancelledBookingsData.slice(startIndex, endIndex)
+    return filtered.slice(startIndex, endIndex)
   }
+
+  // Update the totalPages calculation
+  const totalPages = Math.ceil(getCurrentPageData().length / itemsPerPage)
 
   // Handle page change
   const handlePageChange = (page) => {
@@ -33,6 +51,17 @@ export default function CancelBookingsPage() {
       {/* Main Content */}
       <div className="flex-1">
         <PageHeader />
+
+        {/* After the PageHeader, add a search input */}
+        <div className="mb-4">
+          <Input
+            type="search"
+            placeholder="Search bookings..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="max-w-xs"
+          />
+        </div>
 
         <main className="p-4 md:p-6">
           <div className="mb-6">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Info, Download, Trash2, Tag } from "lucide-react"
+import { Info, Pencil, Trash2, Tag } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Sidebar } from "@/components/sidebar"
@@ -198,6 +198,12 @@ export default function OffersPage() {
     })
   }
 
+  // Handle edit
+  const handleEdit = (offer: Offer) => {
+    setCurrentOffer(offer)
+    setIsAddDialogOpen(true)
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar - hidden on mobile */}
@@ -279,10 +285,10 @@ export default function OffersPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-gray-500"
-                            onClick={() => handleDownload(offer)}
+                            className="h-8 w-8 text-blue-500"
+                            onClick={() => handleEdit(offer)}
                           >
-                            <Download className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
