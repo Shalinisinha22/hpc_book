@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { Eye, EyeOff, Mail, Lock, AlertCircle, ChevronRight, Volume2, VolumeX, Play, Pause } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, AlertCircle, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,11 +22,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(true) // Start with playing true for autoplay
-  const [isMuted, setIsMuted] = useState(false) // Not muted by default
-  const audioContextRef = useRef(null)
-  const oscillatorsRef = useRef([])
-  const gainNodesRef = useRef([])
 
   // Hotel highlights to display
   const hotelHighlights = [
@@ -46,151 +41,6 @@ export default function LoginPage() {
       image: "/royal-bihar-interior.png",
     },
   ]
-
-  // Create Islamic-style music using Web Audio API
-  const createIslamicMusic = () => {
-    try {
-      // Clean up any existing audio
-      stopMusic()
-
-      // Create audio context
-      const AudioContext = window.AudioContext || window.webkitAudioContext
-      audioContextRef.current = new AudioContext()
-
-      // Islamic music often uses specific scales - we'll use a Maqam-inspired scale
-      // These are frequencies for notes in a scale similar to Maqam Bayati
-      const frequencies = [
-        261.63, // C4
-        277.18, // C#4/Db4
-        311.13, // Eb4
-        349.23, // F4
-        392.0, // G4
-        415.3, // Ab4
-        466.16, // Bb4
-      ]
-
-      // Create multiple oscillators for a richer sound
-      for (let i = 0; i < frequencies.length; i++) {
-        // Create oscillator
-        const oscillator = audioContextRef.current.createOscillator()
-        oscillator.type = i % 2 === 0 ? "sine" : "triangle" // Mix of sine and triangle waves
-        oscillator.frequency.setValueAtTime(frequencies[i], audioContextRef.current.currentTime)
-
-        // Create gain node (volume control)
-        const gainNode = audioContextRef.current.createGain()
-
-        // Set very low volume for a background ambient effect
-        gainNode.gain.setValueAtTime(0.03, audioContextRef.current.currentTime)
-
-        // Connect oscillator to gain node and gain node to audio output
-        oscillator.connect(gainNode)
-        gainNode.connect(audioContextRef.current.destination)
-
-        // Start the oscillator
-        oscillator.start()
-
-        // Create rhythmic patterns by modulating the volume
-        const lfoFrequency = 0.2 + i * 0.05 // Different rhythm for each note
-        setInterval(() => {
-          if (audioContextRef.current && !isMuted) {
-            const time = audioContextRef.current.currentTime
-            gainNode.gain.setValueAtTime(0.01, time)
-            gainNode.gain.linearRampToValueAtTime(0.05, time + 0.1)
-            gainNode.gain.linearRampToValueAtTime(0.01, time + 1 / lfoFrequency)
-          }
-        }, 1000 / lfoFrequency)
-
-        // Store references for later cleanup
-        oscillatorsRef.current.push(oscillator)
-        gainNodesRef.current.push(gainNode)
-      }
-    } catch (err) {
-      console.error("Audio creation error:", err)
-      setIsPlaying(false)
-    }
-  }
-
-  // Stop all music
-  const stopMusic = () => {
-    if (audioContextRef.current) {
-      // Stop all oscillators
-      oscillatorsRef.current.forEach((oscillator) => {
-        try {
-          oscillator.stop()
-          oscillator.disconnect()
-        } catch (e) {
-          // Ignore errors during cleanup
-        }
-      })
-
-      // Disconnect all gain nodes
-      gainNodesRef.current.forEach((gainNode) => {
-        try {
-          gainNode.disconnect()
-        } catch (e) {
-          // Ignore errors during cleanup
-        }
-      })
-
-      // Clear the arrays
-      oscillatorsRef.current = []
-      gainNodesRef.current = []
-
-      // Close the audio context
-      try {
-        audioContextRef.current.close()
-      } catch (e) {
-        // Ignore errors during cleanup
-      }
-
-      audioContextRef.current = null
-    }
-  }
-
-  // Toggle play/pause
-  const togglePlay = () => {
-    if (isPlaying) {
-      stopMusic()
-    } else {
-      createIslamicMusic()
-    }
-    setIsPlaying(!isPlaying)
-  }
-
-  // Toggle mute/unmute
-  const toggleMute = () => {
-    setIsMuted(!isMuted)
-
-    // Update gain values based on mute state
-    if (audioContextRef.current) {
-      gainNodesRef.current.forEach((gainNode) => {
-        try {
-          if (!isMuted) {
-            // Currently not muted, so we're muting
-            gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime)
-          } else {
-            // Currently muted, so we're unmuting
-            gainNode.gain.setValueAtTime(0.03, audioContextRef.current.currentTime)
-          }
-        } catch (e) {
-          console.error("Error toggling mute:", e)
-        }
-      })
-    }
-  }
-
-  // Start music on page load (autoplay)
-  useEffect(() => {
-    // Small delay to ensure the component is fully mounted
-    const timer = setTimeout(() => {
-      createIslamicMusic()
-    }, 500)
-
-    return () => {
-      clearTimeout(timer)
-      stopMusic()
-    }
-  }, [])
 
   // Auto-rotate images
   useEffect(() => {
@@ -349,28 +199,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Audio controls */}
-            <div className="flex items-center space-x-2 mb-6">
-              <button
-                onClick={togglePlay}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                aria-label={isPlaying ? "Pause music" : "Play music"}
-              >
-                {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-              </button>
-              <button
-                onClick={toggleMute}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                aria-label={isMuted ? "Unmute" : "Mute"}
-                disabled={!isPlaying}
-              >
-                {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-              </button>
-              <span className="text-xs text-white/70">
-                {isPlaying ? "The Royal Bihar Instrumental Music" : "Click to play music"}
-              </span>
-            </div>
-
             {/* Hotel highlight information */}
             <div className="mt-8 max-w-md">
               <div className="bg-black/30 backdrop-blur-sm p-6 rounded-lg border border-white/10">
@@ -486,36 +314,6 @@ export default function LoginPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900">The Royal Bihar</h1>
             <p className="text-gray-500 mt-1">Tradition & Hospitality</p>
-
-            {/* Audio controls for mobile */}
-            <div className="flex items-center space-x-2 mt-4">
-              <button
-                onClick={togglePlay}
-                className="p-2 bg-[#ac760a]/10 hover:bg-[#ac760a]/20 rounded-full transition-colors"
-                aria-label={isPlaying ? "Pause music" : "Play music"}
-              >
-                {isPlaying ? (
-                  <Pause size={16} className="text-[#ac760a]" />
-                ) : (
-                  <Play size={16} className="text-[#ac760a]" />
-                )}
-              </button>
-              <button
-                onClick={toggleMute}
-                className="p-2 bg-[#ac760a]/10 hover:bg-[#ac760a]/20 rounded-full transition-colors"
-                aria-label={isMuted ? "Unmute" : "Mute"}
-                disabled={!isPlaying}
-              >
-                {isMuted ? (
-                  <VolumeX size={16} className="text-[#ac760a]" />
-                ) : (
-                  <Volume2 size={16} className="text-[#ac760a]" />
-                )}
-              </button>
-              <span className="text-xs text-gray-500">
-                {isPlaying ? "The Royal Bihar Music" : "Click to play music"}
-              </span>
-            </div>
 
             {/* Indian flag colors strip for mobile */}
             <div className="flex w-full mt-4 mb-6">
