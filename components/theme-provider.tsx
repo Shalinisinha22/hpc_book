@@ -4,72 +4,50 @@ import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
 
-type Theme = "light" | "dark"
+type Theme = "dark" | "light" | "system"
 
 type ThemeProviderProps = {
   children: React.ReactNode
   defaultTheme?: Theme
-  storageKey?: string
 }
 
 type ThemeProviderState = {
   theme: Theme
   setTheme: (theme: Theme) => void
-  toggleTheme: () => void
 }
 
 const initialState: ThemeProviderState = {
   theme: "light",
   setTheme: () => null,
-  toggleTheme: () => null,
 }
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
-export function ThemeProvider({
-  children,
-  defaultTheme = "light",
-  storageKey = "royal-bihar-theme",
-  ...props
-}: ThemeProviderProps) {
+export function ThemeProvider({ children, defaultTheme = "light" }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(defaultTheme)
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem(storageKey) as Theme | null
-
-    if (savedTheme) {
-      setTheme(savedTheme)
-    } else {
-      // Check for system preference
-      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        setTheme("dark")
-      }
-    }
-  }, [storageKey])
-
-  useEffect(() => {
     const root = window.document.documentElement
-
     root.classList.remove("light", "dark")
-    root.classList.add(theme)
-    localStorage.setItem(storageKey, theme)
-  }, [theme, storageKey])
 
-  const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light")
-  }
+    if (theme === "system") {
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+      root.classList.add(systemTheme)
+      return
+    }
+
+    root.classList.add(theme)
+  }, [theme])
 
   const value = {
     theme,
-    setTheme,
-    toggleTheme,
+    setTheme: (theme: Theme) => {
+      setTheme(theme)
+      localStorage.setItem("theme", theme)
+    },
   }
 
-  return (
-    <ThemeProviderContext.Provider {...props} value={value}>
-      {children}
-    </ThemeProviderContext.Provider>
-  )
+  return <ThemeProviderContext.Provider value={value}>{children}</ThemeProviderContext.Provider>
 }
 
 export const useTheme = () => {

@@ -5,7 +5,6 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/use-toast"
 import { PageHeader } from "@/components/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -106,29 +105,10 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-8">
       <PageHeader heading="Settings" text="Manage your account settings and preferences." />
 
-      <Tabs defaultValue="general" className="w-full">
+      <Tabs defaultValue="security" className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="general">
-          <Card>
-            <CardHeader>
-              <CardTitle>General Settings</CardTitle>
-              <CardDescription>Manage your general preferences and settings.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between space-x-2">
-                <div className="space-y-0.5">
-                  <h3 className="text-base font-medium">Lowest Price</h3>
-                  <p className="text-sm text-muted-foreground">Show the lowest price for rooms and suites.</p>
-                </div>
-                <Switch checked={isLowestPriceEnabled} onCheckedChange={handleLowestPriceToggle} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="security">
           <Card>

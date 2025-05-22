@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Globe, Heart, Bell, Menu, X, ChevronDown } from "lucide-react"
+import { Search, Bell, Menu, X, ChevronDown, Globe } from "lucide-react"
 import { useAuthStore } from "@/lib/auth-store"
 import { motion, AnimatePresence } from "framer-motion"
-import { useTheme } from "@/components/theme-provider"
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -13,7 +12,38 @@ export function Header() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const { user } = useAuthStore()
-  const { theme } = useTheme()
+
+  // Instead of using useTheme, detect dark mode from the DOM
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
+  useEffect(() => {
+    // Check for dark mode
+    const checkDarkMode = () => {
+      if (typeof window !== "undefined") {
+        const isDark =
+          document.documentElement.classList.contains("dark") ||
+          window.matchMedia("(prefers-color-scheme: dark)").matches
+        setIsDarkMode(isDark)
+      }
+    }
+
+    checkDarkMode()
+
+    // Listen for theme changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === "class") {
+          checkDarkMode()
+        }
+      })
+    })
+
+    if (typeof document !== "undefined") {
+      observer.observe(document.documentElement, { attributes: true })
+    }
+
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,6 +74,9 @@ export function Header() {
     { id: 2, text: "Payment received", time: "1 hour ago" },
     { id: 3, text: "New review submitted", time: "3 hours ago" },
   ]
+
+  // Use the isDarkMode state instead of theme
+  const theme = isDarkMode ? "dark" : "light"
 
   return (
     <header
@@ -119,25 +152,13 @@ export function Header() {
             whileTap={{ scale: 0.95 }}
             className={`${
               theme === "light"
-                ? "bg-gradient-to-br from-green-400 to-green-600"
-                : "bg-gradient-to-br from-green-500 to-green-700"
+                ? "bg-gradient-to-br from-blue-400 to-blue-600"
+                : "bg-gradient-to-br from-blue-500 to-blue-700"
             } 
               rounded-full p-2 text-white hover:shadow-md transition-all duration-200 shadow-sm`}
+            onClick={() => window.open("https://theroyalbihar.com/", "_blank")}
           >
             <Globe className="h-5 w-5 drop-shadow-sm" />
-          </motion.button>
-
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`${
-              theme === "light"
-                ? "bg-gradient-to-br from-red-400 to-red-600"
-                : "bg-gradient-to-br from-red-500 to-red-700"
-            } 
-              rounded-full p-2 text-white hover:shadow-md transition-all duration-200 shadow-sm`}
-          >
-            <Heart className="h-5 w-5 drop-shadow-sm" />
           </motion.button>
 
           <motion.div className="relative notifications-container">
