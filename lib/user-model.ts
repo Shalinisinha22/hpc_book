@@ -17,35 +17,35 @@ export const MOCK_USERS: User[] = [
   {
     id: "1",
     name: "Admin User",
-    email: "admin@royalbihar.com",
+    email: "admin@patliputra.com",
     password: "admin123",
     roleId: "1", // Admin role
   },
   {
     id: "2",
     name: "Front Office Staff",
-    email: "frontdesk@royalbihar.com",
+    email: "frontdesk@patliputra.com",
     password: "password123",
     roleId: "2", // Front Office role
   },
   {
     id: "3",
     name: "HR Manager",
-    email: "hr@royalbihar.com",
+    email: "hr@patliputra.com",
     password: "password123",
     roleId: "3", // HR role
   },
   {
     id: "4",
     name: "Banquet Service",
-    email: "banquet@royalbihar.com",
+    email: "banquet@patliputra.com",
     password: "password123",
     roleId: "4", // Bqt Service role
   },
   {
     id: "5",
     name: "Accounts Manager",
-    email: "accounts@royalbihar.com",
+    email: "accounts@patliputra.com",
     password: "password123",
     roleId: "5", // Account role
   },

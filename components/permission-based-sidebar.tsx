@@ -84,7 +84,7 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
             <div className="bg-gold text-white p-2 rounded-lg">
               <Building className="h-5 w-5" />
             </div>
-            <div className="font-bold text-xl text-gray-900">The Royal</div>
+            <div className="font-bold text-xl text-gray-900">HPC</div>
           </div>
         )}
         <button

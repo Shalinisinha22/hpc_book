@@ -99,7 +99,11 @@ export function Header() {
         </button>
 
         <div className="hidden md:flex items-center">
-          <img src="/royal-bihar-logo.png" alt="Royal Bihar Logo" className="h-9 w-auto mr-3 drop-shadow-md" />
+          <img
+            src="/hotel-patliputra-logo.png"
+            alt="Hotel Patliputra Continental Logo"
+            className="h-9 w-auto mr-3 drop-shadow-md"
+          />
         </div>
 
         <div className="relative group">
@@ -156,7 +160,7 @@ export function Header() {
                 : "bg-gradient-to-br from-blue-500 to-blue-700"
             } 
               rounded-full p-2 text-white hover:shadow-md transition-all duration-200 shadow-sm`}
-            onClick={() => window.open("https://theroyalbihar.com/", "_blank")}
+            onClick={() => window.open("https://hotelpatliputra.com/", "_blank")}
           >
             <Globe className="h-5 w-5 drop-shadow-sm" />
           </motion.button>
@@ -268,7 +272,7 @@ export function Header() {
                     {user?.name || "DG Crux"}
                   </div>
                   <div className={`text-xs ${theme === "light" ? "text-gray-500" : "text-gray-400"}`}>
-                    {user?.email || "admin@royalbihar.com"}
+                    {user?.email || "admin@patliputra.com"}
                   </div>
                 </div>
                 <div className="py-1">
