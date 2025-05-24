@@ -80,14 +80,8 @@ export function Header() {
 
   return (
     <header
-      className={`${
-        theme === "light"
-          ? scrolled
-            ? "bg-gradient-to-r from-amber-700 via-amber-600 to-orange-600 shadow-lg"
-            : "bg-gradient-to-r from-amber-600 via-amber-500 to-orange-500"
-          : scrolled
-            ? "bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 shadow-lg"
-            : "bg-gradient-to-r from-gray-800 via-gray-700 to-gray-800"
+      className={`bg-gradient-to-r from-amber-600 via-amber-500 to-orange-500 ${
+        scrolled ? "shadow-lg" : ""
       } h-16 flex items-center justify-between px-6 sticky top-0 z-50 transition-all duration-300`}
     >
       <div className="flex items-center gap-4">
