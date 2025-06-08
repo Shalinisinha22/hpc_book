@@ -143,11 +143,11 @@ export default function RoomsAndSuitesPage() {
   const createRoom = async (roomData: FormData) => {
     try {
       // Get token from localStorage or your auth state management
-      const user = localStorage.getItem("authToken")
-      if (!user) {
+      const token = localStorage.getItem("auth-token")
+      if (!token) {
         throw new Error("User not authenticated")
       }
-      const token = JSON.parse(user)?.token 
+   
 
       const response = await fetch("http://localhost:8000/api/v1/rooms", {
         method: "POST",
@@ -156,6 +156,8 @@ export default function RoomsAndSuitesPage() {
         },
         body: roomData, 
       })
+
+      console.log("Response status:", response.status)
 
       if (!response.status) {
         throw new Error("Failed to create room")

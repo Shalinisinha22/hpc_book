@@ -1,47 +1,8 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { PREDEFINED_ROLES, type Permission } from "@/lib/permissions"
+import { isTokenValid } from "./utils/token-validator"
 
-// Mock users for demo
-const MOCK_USERS = [
-  {
-    id: "1",
-    name: "Admin User",
-    email: "admin@royalbihar.com",
-    password: "admin123",
-    roleId: "1", // Admin role
-  },
-  {
-    id: "2",
-    name: "Front Office Staff",
-    email: "frontdesk@royalbihar.com",
-    password: "password123",
-    roleId: "2", // Front Office role
-  },
-  {
-    id: "3",
-    name: "HR Manager",
-    email: "hr@royalbihar.com",
-    password: "password123",
-    roleId: "3", // HR role
-  },
-  {
-    id: "4",
-    name: "Banquet Service",
-    email: "banquet@royalbihar.com",
-    password: "password123",
-    roleId: "4", // Bqt Service role
-  },
-  {
-    id: "5",
-    name: "Accounts Manager",
-    email: "accounts@royalbihar.com",
-    password: "password123",
-    roleId: "5", // Account role
-  },
-]
-
-// Update AuthState interface to include token
 interface AuthState {
   isAuthenticated: boolean
   user: {
@@ -78,13 +39,12 @@ export const useAuthStore = create<AuthState>()(
           if (!data.success) {
             return {
               success: false,
-              message: data.message || "Login failed. Please check your credentials.",
+              message: data.message || "Login failed",
             }
           }
 
           const { name, email: userEmail, role, token } = data.result
 
-         
           const userRole = PREDEFINED_ROLES.find((r) => r.name.toLowerCase() === role.toLowerCase())
           
           if (!userRole) {
@@ -94,7 +54,8 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          set({
+          // Set both auth state and localStorage
+          const authState = {
             isAuthenticated: true,
             user: {
               id: data.result._id || '',
@@ -102,37 +63,74 @@ export const useAuthStore = create<AuthState>()(
               name,
               roleId: role,
               permissions: userRole.permissions,
-              token: token
+              token
             },
-          })
+          }
 
-       
-          localStorage.setItem('authToken', token)
+          set(authState)
+          
+          // Store token separately in localStorage
+          window.localStorage.setItem('auth-token', token)
+          window.localStorage.setItem('auth-state', JSON.stringify(authState))
 
           return { success: true }
         } catch (error) {
           console.error('Login error:', error)
           return {
             success: false,
-            message: "Network error. Please try again.",
+            message: "Network error",
           }
         }
       },
-    
       logout: () => {
-        localStorage.removeItem('authToken')
+        window.localStorage.removeItem('auth-token')
+        window.localStorage.removeItem('auth-state')
         set({ isAuthenticated: false, user: null })
       },
       hasPermission: (permission: Permission) => {
         const { user } = get()
         if (!user) return false
-
-        const hasPermission = user.permissions.includes(permission)
-        return hasPermission
+        return user.permissions.includes(permission)
       },
     }),
     {
       name: "auth-storage",
+      storage: {
+        getItem: (name) => {
+          try {
+            const authState = window.localStorage.getItem('auth-state')
+            const token = window.localStorage.getItem('auth-token')
+
+            if (!authState || !token) {
+              set({ isAuthenticated: false, user: null })
+              return null
+            }
+
+            const state = JSON.parse(authState)
+            return {
+              state: {
+                ...state,
+                isAuthenticated: true
+              }
+            }
+          } catch {
+            set({ isAuthenticated: false, user: null })
+            return null
+          }
+        },
+        setItem: (name, value) => {
+          window.localStorage.setItem(name, JSON.stringify(value))
+        },
+        removeItem: (name) => {
+          window.localStorage.removeItem(name)
+          window.localStorage.removeItem('auth-token')
+          window.localStorage.removeItem('auth-state')
+        },
+      },
+      partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+        user: state.user
+      }),
     }
   )
 )
