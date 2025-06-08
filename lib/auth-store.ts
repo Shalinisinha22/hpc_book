@@ -41,6 +41,7 @@ const MOCK_USERS = [
   },
 ]
 
+// Update AuthState interface to include token
 interface AuthState {
   isAuthenticated: boolean
   user: {
@@ -49,9 +50,10 @@ interface AuthState {
     name: string
     roleId: string
     permissions: Permission[]
+    token: string  // Add token field
   } | null
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
-  loginWithOtp: (email: string, otp: string) => Promise<{ success: boolean; message?: string }>
+  // loginWithOtp: (email: string, otp: string) => Promise<{ success: boolean; message?: string }>
   logout: () => void
   hasPermission: (permission: Permission) => boolean
 }
@@ -62,85 +64,63 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       user: null,
       login: async (email, password) => {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 800))
+        try {
+          const response = await fetch("http://localhost:8000/api/v1/users/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+          })
 
-        // Find user with matching credentials
-        const user = MOCK_USERS.find((u) => u.email === email && u.password === password)
-
-        if (user) {
-          // Find user's role
-          const role = PREDEFINED_ROLES.find((r) => r.id === user.roleId)
-
-          if (!role) {
+          const data = await response.json()
+          
+          if (!data.success) {
             return {
               success: false,
-              message: "User role not found",
+              message: data.message || "Login failed. Please check your credentials.",
             }
           }
 
-          // Set user with permissions
-          set({
-            isAuthenticated: true,
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              roleId: role.name,
-              permissions: role.permissions,
-            },
-          })
+          const { name, email: userEmail, role, token } = data.result
 
-          console.log("Login successful. User permissions:", role.permissions)
-          return { success: true }
-        }
-
-        return {
-          success: false,
-          message: "Invalid email or password",
-        }
-      },
-      loginWithOtp: async (email, otp) => {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 800))
-
-        // Find user with matching email
-        const user = MOCK_USERS.find((u) => u.email === email)
-
-        // For demo purposes, any 6-digit OTP works for valid emails
-        if (user && /^\d{6}$/.test(otp)) {
-          // Find user's role
-          const role = PREDEFINED_ROLES.find((r) => r.id === user.roleId)
-
-          if (!role) {
+         
+          const userRole = PREDEFINED_ROLES.find((r) => r.name.toLowerCase() === role.toLowerCase())
+          
+          if (!userRole) {
             return {
               success: false,
-              message: "User role not found",
+              message: "Invalid role configuration",
             }
           }
 
-          // Set user with permissions
           set({
             isAuthenticated: true,
             user: {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              roleId: role.name,
-              permissions: role.permissions,
+              id: data.result._id || '',
+              email: userEmail,
+              name,
+              roleId: role,
+              permissions: userRole.permissions,
+              token: token
             },
           })
 
-          console.log("OTP login successful. User permissions:", role.permissions)
-          return { success: true }
-        }
+       
+          localStorage.setItem('authToken', token)
 
-        return {
-          success: false,
-          message: email !== MOCK_USERS[0].email ? "Email not found" : "Invalid OTP. Please enter a 6-digit code",
+          return { success: true }
+        } catch (error) {
+          console.error('Login error:', error)
+          return {
+            success: false,
+            message: "Network error. Please try again.",
+          }
         }
       },
+    
       logout: () => {
+        localStorage.removeItem('authToken')
         set({ isAuthenticated: false, user: null })
       },
       hasPermission: (permission: Permission) => {
@@ -153,6 +133,6 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "auth-storage",
-    },
-  ),
+    }
+  )
 )

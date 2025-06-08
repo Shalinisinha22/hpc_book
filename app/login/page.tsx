@@ -319,7 +319,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                {/* <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <input type="checkbox" id="remember" className="rounded border-gray-300 text-[#ac760a]" />
                     <label htmlFor="remember" className="text-sm text-gray-600">
@@ -329,7 +329,7 @@ export default function LoginPage() {
                   <Link href="#" className="text-sm font-medium text-[#ac760a] hover:text-[#8a5e08]">
                     Forgot password?
                   </Link>
-                </div>
+                </div> */}
 
                 {error && (
                   <Alert variant="destructive" className="text-sm py-2">

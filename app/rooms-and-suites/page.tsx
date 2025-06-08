@@ -32,6 +32,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { toast } from "@/components/ui/use-toast"
+
 
 interface Room {
   id: number
@@ -137,27 +139,85 @@ export default function RoomsAndSuitesPage() {
   const newImageInputRef = useRef<HTMLInputElement>(null)
   const editImageInputRef = useRef<HTMLInputElement>(null)
 
-  const handleAddRoom = () => {
-    const roomToAdd = {
-      ...newRoom,
-      id: rooms.length > 0 ? Math.max(...rooms.map((room) => room.id)) + 1 : 1,
-      image:
-        newImagePreview ||
-        `/placeholder.svg?height=100&width=100&query=${encodeURIComponent(newRoom.title || "hotel room")}`,
-    } as Room
+  // Function to create a new room
+  const createRoom = async (roomData: FormData) => {
+    try {
+      // Get token from localStorage or your auth state management
+      const user = localStorage.getItem("authToken")
+      if (!user) {
+        throw new Error("User not authenticated")
+      }
+      const token = JSON.parse(user)?.token 
 
-    setRooms([...rooms, roomToAdd])
-    setNewRoom({
-      title: "",
-      description: "",
-      maxPerson: 2,
-      maxChildren: 0,
-      totalRooms: 1,
-      roomSize: 0,
-      image: "",
-    })
-    setNewImagePreview(null)
-    setIsAddDialogOpen(false)
+      const response = await fetch("http://localhost:8000/api/v1/rooms", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: roomData, 
+      })
+
+      if (!response.status) {
+        throw new Error("Failed to create room")
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      throw error
+    }
+  }
+
+
+  const handleAddRoom = async () => {
+    try {
+      // Create FormData object
+      const formData = new FormData()
+
+      // Add room images if they exist
+      if (newImagePreview) {
+        const response = await fetch(newImagePreview)
+        const blob = await response.blob()
+        formData.append("roomImage", blob, "room-image.jpg")
+      }
+
+      // Add other room data
+      formData.append("room_title", newRoom.title)
+      formData.append("desc", newRoom.description)
+      formData.append("max_person", newRoom.maxPerson.toString())
+      formData.append("max_children", newRoom.maxChildren.toString())
+      formData.append("totalRooms", newRoom.totalRooms.toString())
+      formData.append("roomSize", newRoom.roomSize.toString())
+
+      // Send data to backend
+      await createRoom(formData)
+
+      // Reset form and show success message
+      setNewRoom({
+        title: "",
+        description: "",
+        maxPerson: 2,
+        maxChildren: 0,
+        totalRooms: 1,
+        roomSize: 0,
+        image: "",
+      })
+      setNewImagePreview(null)
+      setIsAddDialogOpen(false)
+
+      // Show success toast using your UI components
+      toast({
+        title: "Success",
+        description: "Room created successfully",
+      })
+    } catch (error) {
+      // Handle error
+      toast({
+        title: "Error",
+        description: "Failed to create room",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleEditRoom = () => {
