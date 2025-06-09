@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import RichTextEditor from "@/components/rich-text-editor" // Changed from named import to default import
+import RichTextEditor from "@/components/rich-text-editor"
 import { useToast } from "@/components/ui/use-toast"
 
 export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
@@ -28,7 +28,6 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
     imageUrl: "",
     seatingStyles: {
       theater: "",
-      circular: "",
       uShaped: "",
       boardroom: "",
       classroom: "",
@@ -52,33 +51,35 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
         }
       }
 
+      // Map backend data to form structure
       setFormData({
-        id: initialData.id || null,
-        name: initialData.name || "",
-        maxCapacity: initialData.maxCapacity?.toString() || "",
-        shortIntro: initialData.shortIntro || "",
-        description: initialData.description || "",
-        length: length,
-        breadth: breadth,
-        height: height,
+        id: initialData._id || initialData.id || null,
+        name: initialData.hall_name || initialData.name || "",
+        maxCapacity: (initialData.max_capacity || initialData.maxCapacity)?.toString() || "",
+        shortIntro: initialData.short_intro || initialData.shortIntro || "",
+        description: initialData.desc || initialData.description || "",
+        length: length || initialData.length?.toString() || "",
+        breadth: breadth || initialData.breadth?.toString() || "",
+        height: height || initialData.height?.toString() || "",
         area: initialData.area?.toString() || "",
-        guestEntryPoint: initialData.guestEntryPoint || "",
+        guestEntryPoint: initialData.guest_entry_point || initialData.guestEntryPoint || "",
         phone: initialData.phone || "",
         email: initialData.email || "",
         image: null,
-        imageUrl: initialData.image || "",
+        imageUrl: initialData.hall_image?.[0]?.url || initialData.image || initialData.imageUrl || "",
         seatingStyles: {
-          theater: initialData.seatingStyles?.theater || "",
-          circular: initialData.seatingStyles?.circular || "",
-          uShaped: initialData.seatingStyles?.uShaped || "",
-          boardroom: initialData.seatingStyles?.boardroom || "",
-          classroom: initialData.seatingStyles?.classroom || "",
-          reception: initialData.seatingStyles?.reception || "",
+          theater: initialData.seating?.theatre?.toString() || initialData.seatingStyles?.theater || "",
+          uShaped: initialData.seating?.ushaped?.toString() || initialData.seatingStyles?.uShaped || "",
+          boardroom: initialData.seating?.boardroom?.toString() || initialData.seatingStyles?.boardroom || "",
+          classroom: initialData.seating?.classroom?.toString() || initialData.seatingStyles?.classroom || "",
+          reception: initialData.seating?.reception?.toString() || initialData.seatingStyles?.reception || "",
         },
       })
 
-      if (initialData.image) {
-        setImagePreview(initialData.image)
+      // Set image preview
+      const imageUrl = initialData.hall_image?.[0]?.url || initialData.image || initialData.imageUrl
+      if (imageUrl) {
+        setImagePreview(imageUrl)
       }
     }
   }, [initialData])
@@ -110,14 +111,36 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
     })
   }
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0]
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0]
     if (file) {
-      setFormData({
-        ...formData,
-        image: file,
-      })
+      // Validate file type and size
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Error",
+          description: "Please select an image file",
+          variant: "destructive",
+        })
+        return
+      }
 
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
+        toast({
+          title: "Error",
+          description: "Image must be less than 5MB",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Update form data with the file
+      setFormData((prev) => ({
+        ...prev,
+        image: file,
+      }))
+
+      // Create preview
       const reader = new FileReader()
       reader.onload = () => {
         setImagePreview(reader.result)
@@ -126,38 +149,66 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     // Validation
-    if (!formData.name) {
+    if (!formData.name || !formData.maxCapacity || !formData.shortIntro) {
       toast({
-        title: "Validation Error",
-        description: "Hall name is required",
+        title: "Error",
+        description: "Please fill in all required fields",
         variant: "destructive",
       })
       return
     }
 
-    // Combine dimensions
-    const dimensions = `${formData.length} x ${formData.breadth} x ${formData.height} Mt.`
-
-    // Prepare data for submission
+    // Create submission data object (not FormData)
     const submissionData = {
-      ...formData,
-      dimensions,
-      // Use the preview URL if no new image was uploaded
-      image: imagePreview || "/grand-hallway.png",
+      id: formData.id,
+      name: formData.name,
+      maxCapacity: formData.maxCapacity,
+      shortIntro: formData.shortIntro,
+      description: formData.description,
+      length: formData.length,
+      breadth: formData.breadth,
+      height: formData.height,
+      area: formData.area,
+      guestEntryPoint: formData.guestEntryPoint,
+      phone: formData.phone,
+      email: formData.email,
+      seatingStyles: {
+        theater: formData.seatingStyles.theater,
+        uShaped: formData.seatingStyles.uShaped,
+        boardroom: formData.seatingStyles.boardroom,
+        classroom: formData.seatingStyles.classroom,
+        reception: formData.seatingStyles.reception,
+      },
+      // Pass the image file directly
+      image: formData.image,
+      imageUrl: formData.imageUrl,
     }
 
-    onSubmit(submissionData)
+    console.log('Form submitting data:', submissionData)
+    console.log('Image type:', typeof submissionData.image)
+    console.log('Image instanceof File:', submissionData.image instanceof File)
+
+    try {
+      await onSubmit(submissionData)
+    } catch (error) {
+      console.error('Form submission error:', error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save hall",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <Label htmlFor="name">Hall Name</Label>
+          <Label htmlFor="name">Hall Name *</Label>
           <Input
             id="name"
             name="name"
@@ -165,10 +216,11 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
             onChange={handleChange}
             placeholder="Hall Name"
             className="mt-1"
+            required
           />
         </div>
         <div>
-          <Label htmlFor="maxCapacity">Max Capacity</Label>
+          <Label htmlFor="maxCapacity">Max Capacity *</Label>
           <Input
             id="maxCapacity"
             name="maxCapacity"
@@ -177,12 +229,13 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
             placeholder="Max Capacity"
             type="number"
             className="mt-1"
+            required
           />
         </div>
       </div>
 
       <div>
-        <Label htmlFor="shortIntro">Short Intro</Label>
+        <Label htmlFor="shortIntro">Short Intro *</Label>
         <Textarea
           id="shortIntro"
           name="shortIntro"
@@ -190,6 +243,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
           onChange={handleChange}
           placeholder="Enter your short intro of hall"
           className="mt-1"
+          required
         />
       </div>
 
@@ -207,6 +261,8 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
             value={formData.length}
             onChange={handleChange}
             placeholder="L (Mt.)"
+            type="number"
+            step="0.1"
             className="mt-1"
           />
         </div>
@@ -218,6 +274,8 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
             value={formData.breadth}
             onChange={handleChange}
             placeholder="B (Mt.)"
+            type="number"
+            step="0.1"
             className="mt-1"
           />
         </div>
@@ -229,6 +287,8 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
             value={formData.height}
             onChange={handleChange}
             placeholder="Height (Mt.)"
+            type="number"
+            step="0.1"
             className="mt-1"
           />
         </div>
@@ -244,6 +304,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
             onChange={handleChange}
             placeholder="Area (Sq. Mt.)"
             type="number"
+            step="0.1"
             className="mt-1"
           />
         </div>
@@ -255,6 +316,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
             value={formData.guestEntryPoint}
             onChange={handleChange}
             placeholder="No of Entry Point"
+            type="number"
             className="mt-1"
           />
         </div>
@@ -269,6 +331,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
             value={formData.phone}
             onChange={handleChange}
             placeholder="Phone"
+            type="tel"
             className="mt-1"
           />
         </div>
@@ -297,17 +360,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
               value={formData.seatingStyles.theater}
               onChange={handleChange}
               placeholder="Theater"
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="circular">Circular</Label>
-            <Input
-              id="circular"
-              name="seatingStyles.circular"
-              value={formData.seatingStyles.circular}
-              onChange={handleChange}
-              placeholder="Circular"
+              type="number"
               className="mt-1"
             />
           </div>
@@ -319,6 +372,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
               value={formData.seatingStyles.uShaped}
               onChange={handleChange}
               placeholder="U-Shaped"
+              type="number"
               className="mt-1"
             />
           </div>
@@ -330,6 +384,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
               value={formData.seatingStyles.boardroom}
               onChange={handleChange}
               placeholder="Boardroom"
+              type="number"
               className="mt-1"
             />
           </div>
@@ -341,6 +396,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
               value={formData.seatingStyles.classroom}
               onChange={handleChange}
               placeholder="Classroom"
+              type="number"
               className="mt-1"
             />
           </div>
@@ -352,6 +408,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
               value={formData.seatingStyles.reception}
               onChange={handleChange}
               placeholder="Reception"
+              type="number"
               className="mt-1"
             />
           </div>
@@ -361,22 +418,33 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
       <div>
         <Label htmlFor="image">Upload Image</Label>
         <div className="mt-1 flex items-center">
-          <Input id="image" name="image" type="file" accept="image/*" onChange={handleImageChange} className="mt-1" />
+          <Input 
+            id="image" 
+            name="image" 
+            type="file" 
+            accept="image/*" 
+            onChange={handleImageChange} 
+            className="mt-1" 
+          />
         </div>
         {imagePreview && (
           <div className="mt-4 flex justify-center">
             <div className="w-64 h-64 relative border rounded-md overflow-hidden">
-              <img src={imagePreview || "/placeholder.svg"} alt="Hall preview" className="w-full h-full object-cover" />
+              <img 
+                src={imagePreview || "/placeholder.svg"} 
+                alt="Hall preview" 
+                className="w-full h-full object-cover" 
+              />
             </div>
           </div>
         )}
       </div>
 
-      <div className="flex justify-start">
+      <div className="flex justify-start space-x-2">
         <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
-          Save
+          {initialData ? "Update Hall" : "Save Hall"}
         </Button>
-        <Button type="button" variant="outline" className="ml-2" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
       </div>
