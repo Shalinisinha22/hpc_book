@@ -17,6 +17,8 @@ interface AuthState {
   // loginWithOtp: (email: string, otp: string) => Promise<{ success: boolean; message?: string }>
   logout: () => void
   hasPermission: (permission: Permission) => boolean
+  checkTokenValidity: () => boolean
+  handleTokenExpiration: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -86,11 +88,24 @@ export const useAuthStore = create<AuthState>()(
         window.localStorage.removeItem('auth-token')
         window.localStorage.removeItem('auth-state')
         set({ isAuthenticated: false, user: null })
+        // Redirect to login page if we're in the browser
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
       },
       hasPermission: (permission: Permission) => {
         const { user } = get()
         if (!user) return false
         return user.permissions.includes(permission)
+      },
+      checkTokenValidity: () => {
+        const { user } = get()
+        if (!user || !user.token) return false
+        return isTokenValid(user.token)
+      },
+      handleTokenExpiration: () => {
+        console.warn('Token has expired, logging out user')
+        get().logout()
       },
     }),
     {
@@ -102,6 +117,15 @@ export const useAuthStore = create<AuthState>()(
             const token = window.localStorage.getItem('auth-token')
 
             if (!authState || !token) {
+              set({ isAuthenticated: false, user: null })
+              return null
+            }
+
+            // Check if token is still valid
+            if (!isTokenValid(token)) {
+              console.warn('Stored token is expired, clearing auth state')
+              window.localStorage.removeItem('auth-token')
+              window.localStorage.removeItem('auth-state')
               set({ isAuthenticated: false, user: null })
               return null
             }

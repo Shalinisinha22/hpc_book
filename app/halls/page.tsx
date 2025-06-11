@@ -20,6 +20,7 @@ import {
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { AddHallForm } from "@/components/add-hall-form"
+import { apiCall } from "@/lib/api-utils"
 
 export default function HallsPage() {
   const [halls, setHalls] = useState<Hall[]>([])
@@ -48,21 +49,10 @@ export default function HallsPage() {
   // Fetch halls from API
   const fetchHalls = async () => {
     try {
-      const token = localStorage.getItem("auth-token")
-      if (!token) throw new Error("Not authenticated")
-
-      const response = await fetch(API_ROUTES.halls, {
+      const responseData = await apiCall(API_ROUTES.halls, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch halls")
-      }
-
-      const responseData = await response.json()
       // Check if response has the expected structure
       if (responseData.success && Array.isArray(responseData.data)) {
         setHalls(responseData.data)
@@ -74,9 +64,16 @@ export default function HallsPage() {
       }
     } catch (error) {
       console.error("Fetch halls error:", error)
+      
+      // Check if it's an authentication error (handled by apiCall)
+      if (error instanceof Error && error.message.includes('Authentication')) {
+        // apiCall already handled logout and redirect, just return
+        return
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to fetch halls",
+        description: error instanceof Error ? error.message : "Failed to fetch halls",
         variant: "destructive",
       })
       setHalls([]) // Set empty array on error

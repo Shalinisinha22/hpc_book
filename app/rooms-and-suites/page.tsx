@@ -37,7 +37,7 @@ import { uploadToCloudinary } from '@/config/cloudinary';
 
 
 interface Room {
-  _id: string;  // Changed from 'id' to '_id' to match MongoDB
+  _id: string;
   room_title: string;
   desc: string;
   max_person: number;
@@ -49,10 +49,14 @@ interface Room {
     name: string;
     ext: string;
   }>;
+    pricePerNight: number; 
+  // roomView: 'City View' | 'Garden View' | 'Pool View' | 'Ocean View' | 'Mountain View';
+  bedType: 'Single' | 'Double' | 'Queen' | 'King' | 'Twin';
+  amenities: string[];
+  additionalDetails: string[];
   status: 'available' | 'unavailable';
   cdate: string;
 }
-
 export default function RoomsAndSuitesPage() {
   // Replace the static rooms array with useState
 const [rooms, setRooms] = useState<Room[]>([]);
@@ -60,6 +64,8 @@ const [rooms, setRooms] = useState<Room[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null)
+  const [newAmenity, setNewAmenity] = useState('')
+  const [newDetail, setNewDetail] = useState('')
   const [newRoom, setNewRoom] = useState<Partial<Room>>({
     title: "",
     description: "",
@@ -67,6 +73,11 @@ const [rooms, setRooms] = useState<Room[]>([]);
     maxChildren: 0,
     totalRooms: 1,
     roomSize: 0,
+    pricePerNight: 0, 
+    roomView: "City View",
+    bedType: "Single",
+    amenities: [],
+    additionalDetails: [],
     image: "",
   })
 
@@ -161,8 +172,13 @@ const fetchRooms = async () => {
         max_children: Number(newRoom.maxChildren || 0),
         totalRooms: Number(newRoom.totalRooms || 0),
         roomSize: Number(newRoom.roomSize || 0),
+        pricePerNight: Number(newRoom.pricePerNight),
+        // roomView: newRoom.roomView,
+        bedType: newRoom.bedType,
+        amenities: newRoom.amenities || [],
+        additionalDetails: newRoom.additionalDetails || [],
         status: 'available',
-       roomImage: imageData ? [imageData] : [] 
+        roomImage: imageData ? [imageData] : []
       };
 
       // Send the request
@@ -195,6 +211,11 @@ const fetchRooms = async () => {
           totalRooms: 1,
           roomSize: 0,
           image: '',
+          // roomView: 'City View',
+          bedType: 'Single',
+          amenities: [],
+          additionalDetails: [],
+          pricePerNight: 0
         });
         setNewImagePreview(null);
         if (newImageInputRef.current) {
@@ -237,30 +258,50 @@ const fetchRooms = async () => {
     try {
       if (!currentRoom) return;
 
-      const formData = new FormData();
+      // Create the update data object
+      const updateData = {
+        room_title: currentRoom.room_title,
+        desc: currentRoom.desc,
+        max_person: Number(currentRoom.max_person),
+        max_children: Number(currentRoom.max_children),
+        totalRooms: Number(currentRoom.totalRooms),
+        roomSize: Number(currentRoom.roomSize),
+        status: currentRoom.status,
+        bedType: currentRoom.bedType,
+        pricePerNight: Number(currentRoom.pricePerNight),
+        // Ensure amenities and additionalDetails are arrays
+        amenities: Array.isArray(currentRoom.amenities) 
+          ? currentRoom.amenities 
+          : [],
+        additionalDetails: Array.isArray(currentRoom.additionalDetails) 
+          ? currentRoom.additionalDetails 
+          : []
+      };
 
-      // Upload new image to Cloudinary if exists
+      // Handle image update if there's a new image
       if (editImagePreview) {
         const cloudinaryResponse = await uploadToCloudinary(editImagePreview, 'image');
-        console.log('Cloudinary response:', cloudinaryResponse);
-        
-        formData.append('roomImage', JSON.stringify([{
+        updateData.roomImage = [{
           url: cloudinaryResponse.secure_url,
           name: cloudinaryResponse.public_id,
           ext: cloudinaryResponse.format
-        }]));
+        }];
       }
 
-      // Add other room data
-      formData.append('room_title', currentRoom.room_title);
-      formData.append('desc', currentRoom.desc);
-      formData.append('max_person', String(currentRoom.max_person));
-      formData.append('max_children', String(currentRoom.max_children));
-      formData.append('totalRooms', String(currentRoom.totalRooms));
-      formData.append('roomSize', String(currentRoom.roomSize));
-      formData.append('status', currentRoom.status);
+      // Send update request
+      const response = await fetch(`http://localhost:8000/api/v1/rooms/${currentRoom._id}`, {
+        method: "PUT",
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem("auth-token")}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+      });
 
-      await updateRoom(currentRoom._id, formData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update room");
+      }
 
       // Refresh the rooms list
       const updatedRooms = await fetchRooms();
@@ -275,12 +316,12 @@ const fetchRooms = async () => {
         description: 'Room updated successfully',
       });
     } catch (error) {
+      console.error("Update room error:", error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to update room',
         variant: 'destructive',
       });
-      console.error('Error updating room:', error);
     }
   }
 
@@ -310,9 +351,37 @@ const fetchRooms = async () => {
   }
 
   const openEditDialog = (room: Room) => {
-    setCurrentRoom({ ...room })
-    setEditImagePreview(null)
-    setIsEditDialogOpen(true)
+    // Parse amenities and additionalDetails if they're strings
+    let parsedAmenities = room.amenities;
+    let parsedAdditionalDetails = room.additionalDetails;
+
+    // Handle string case (when it comes as JSON string)
+    if (typeof room.amenities === 'string') {
+      try {
+        parsedAmenities = JSON.parse(room.amenities);
+      } catch (e) {
+        console.error('Error parsing amenities:', e);
+        parsedAmenities = [];
+      }
+    }
+
+    if (typeof room.additionalDetails === 'string') {
+      try {
+        parsedAdditionalDetails = JSON.parse(room.additionalDetails);
+      } catch (e) {
+        console.error('Error parsing additional details:', e);
+        parsedAdditionalDetails = [];
+      }
+    }
+
+    // Set the parsed data in currentRoom
+    setCurrentRoom({
+      ...room,
+      amenities: Array.isArray(parsedAmenities) ? parsedAmenities : [],
+      additionalDetails: Array.isArray(parsedAdditionalDetails) ? parsedAdditionalDetails : []
+    });
+    setEditImagePreview(null);
+    setIsEditDialogOpen(true);
   }
 
 const handleNewImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -407,6 +476,11 @@ const updateRoom = async (roomId: string, roomData: FormData) => {
         max_children: parseInt(formDataObj.max_children as string),
         totalRooms: parseInt(formDataObj.totalRooms as string),
         roomSize: parseInt(formDataObj.roomSize as string),
+        // roomView: formDataObj.roomView,
+        amenities: formDataObj.amenities,  
+        additionalDetails: formDataObj.additionalDetails,
+        bedType: formDataObj.bedType,
+        pricePerNight: parseFloat(formDataObj.pricePerNight as string) ,
         status: formDataObj.status,
         ...(formDataObj.roomImage && { roomImage: JSON.parse(formDataObj.roomImage as string) })
       })
@@ -468,6 +542,13 @@ const deleteRoom = async (roomId: string) => {
 
     loadRooms();
   }, []);
+
+  // Add this style to the number inputs
+  const numberInputStyles = {
+    MozAppearance: 'textfield',
+    WebkitAppearance: 'none',
+    appearance: 'textfield',
+  } as const;
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -655,6 +736,157 @@ const deleteRoom = async (roomId: string) => {
                           min="0"
                         />
                       </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="pricePerNight">Price Per Night</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                          <Input
+                            id="pricePerNight"
+                            type="number"
+                            value={newRoom.pricePerNight}
+                            onChange={(e) => setNewRoom({ 
+                              ...newRoom, 
+                              pricePerNight: e.target.value ? Number(e.target.value) : 0 
+                            })}
+                            style={numberInputStyles}
+                            className="pl-8"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Additional details section */}
+                    <div className="grid gap-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* <div className="space-y-2">
+                          <Label htmlFor="roomView">Room View</Label>
+                          <select
+                            id="roomView"
+                            className="w-full border rounded-md p-2"
+                            value={newRoom.roomView}
+                            onChange={(e) => setNewRoom({ ...newRoom, roomView: e.target.value })}
+                          >
+                            <option value="City View">City View</option>
+                            <option value="Garden View">Garden View</option>
+                            <option value="Pool View">Pool View</option>
+                            <option value="Ocean View">Ocean View</option>
+                            <option value="Mountain View">Mountain View</option>
+                          </select>
+                        </div> */}
+
+                        <div className="space-y-2">
+                          <Label htmlFor="bedType">Bed Type</Label>
+                          <select
+                            id="bedType"
+                            className="w-full border rounded-md p-2"
+                            value={newRoom.bedType}
+                            onChange={(e) => setNewRoom({ ...newRoom, bedType: e.target.value })}
+                          >
+                            <option value="Single">Single</option>
+                            <option value="Double">Double</option>
+                            <option value="Queen">Queen</option>
+                            <option value="King">King</option>
+                            <option value="Twin">Twin</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Amenities Section */}
+                      <div className="space-y-2">
+                        <Label>Amenities</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={newAmenity}
+                            onChange={(e) => setNewAmenity(e.target.value)}
+                            placeholder="Add amenity"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (newAmenity.trim()) {
+                                setNewRoom({
+                                  ...newRoom,
+                                  amenities: [...(newRoom.amenities || []), newAmenity.trim()]
+                                })
+                                setNewAmenity('')
+                              }
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {newRoom.amenities?.map((amenity, index) => (
+                            <div
+                              key={index}
+                              className="bg-gray-100 px-3 py-1 rounded-full flex items-center gap-2"
+                            >
+                              <span>{amenity}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewRoom({
+                                    ...newRoom,
+                                    amenities: newRoom.amenities?.filter((_, i) => i !== index)
+                                  })
+                                }}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Additional Details Section */}
+                      <div className="space-y-2">
+                        <Label>Additional Details</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={newDetail}
+                            onChange={(e) => setNewDetail(e.target.value)}
+                            placeholder="Add detail"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (newDetail.trim()) {
+                                setNewRoom({
+                                  ...newRoom,
+                                  additionalDetails: [...(newRoom.additionalDetails || []), newDetail.trim()]
+                                })
+                                setNewDetail('')
+                              }
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {newRoom.additionalDetails?.map((detail, index) => (
+                            <div
+                              key={index}
+                              className="bg-gray-100 px-3 py-1 rounded-full flex items-center gap-2"
+                            >
+                              <span>{detail}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewRoom({
+                                    ...newRoom,
+                                    additionalDetails: newRoom.additionalDetails?.filter((_, i) => i !== index)
+                                  })
+                                }}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <DialogFooter className="sm:justify-end">
@@ -695,6 +927,9 @@ const deleteRoom = async (roomId: string) => {
                       Total Rooms
                     </th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Room Size</th>
+                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price/Night
+                    </th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
                       Actions
                     </th>
@@ -735,6 +970,9 @@ const deleteRoom = async (roomId: string) => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
                         {room.roomSize}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                        ₹{room?.pricePerNight.toLocaleString()}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
@@ -819,166 +1057,313 @@ const deleteRoom = async (roomId: string) => {
             <DialogDescription>Update the details for this room type.</DialogDescription>
           </DialogHeader>
           {currentRoom && (
-            <div className="grid gap-6 py-4">
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Image Upload - Takes full width on mobile, left column on desktop */}
-                <div className="space-y-2">
-                  <Label htmlFor="edit-image">Room Image</Label>
-                  {editImagePreview ? (
-                    <div className="relative w-full h-48 md:h-64">
-                      <Image
-                        src={editImagePreview || "/placeholder.svg"}
-                        alt="Room preview"
-                        fill
-                        className="object-cover rounded-md"
-                      />
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-6 w-6 rounded-full"
-                        onClick={clearEditImage}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div
-                      className="relative w-full h-48 md:h-64 cursor-pointer"
-                      onClick={() => editImageInputRef.current?.click()}
-                      onDragOver={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        e.currentTarget.classList.add("ring-2", "ring-gold")
-                      }}
-                      onDragLeave={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        e.currentTarget.classList.remove("ring-2", "ring-gold")
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        e.currentTarget.classList.remove("ring-2", "ring-gold")
+            <>
+              <div className="grid gap-6 py-4">
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Image Upload - Takes full width on mobile, left column on desktop */}
+                    <div className="space-y-2">
+                    <Label htmlFor="edit-image">Room Image</Label>
+                    {editImagePreview ? (
+                      <div className="relative w-full h-48 md:h-64">
+                        <Image
+                          src={editImagePreview || "/placeholder.svg"}
+                          alt="Room preview"
+                          fill
+                          className="object-cover rounded-md"
+                        />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 h-6 w-6 rounded-full"
+                          onClick={clearEditImage}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div
+                        className="relative w-full h-48 md:h-64 cursor-pointer"
+                        onClick={() => editImageInputRef.current?.click()}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          e.currentTarget.classList.add("ring-2", "ring-gold")
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          e.currentTarget.classList.remove("ring-2", "ring-gold")
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          e.currentTarget.classList.remove("ring-2", "ring-gold")
 
-                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                          const file = e.dataTransfer.files[0]
-                          if (file.type.startsWith("image/")) {
-                            const imageUrl = URL.createObjectURL(file)
-                            setEditImagePreview(imageUrl)
+                          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            const file = e.dataTransfer.files[0]
+                            if (file.type.startsWith("image/")) {
+                              const imageUrl = URL.createObjectURL(file)
+                              setEditImagePreview(imageUrl)
 
-                            // Update the file input
-                            if (editImageInputRef.current) {
-                              const dataTransfer = new DataTransfer()
-                              dataTransfer.items.add(file)
-                              editImageInputRef.current.files = dataTransfer.files
+                              // Update the file input
+                              if (editImageInputRef.current) {
+                                const dataTransfer = new DataTransfer()
+                                dataTransfer.items.add(file)
+                                editImageInputRef.current.files = dataTransfer.files
+                              }
                             }
                           }
-                        }
-                      }}
-                    >
-                      <Image
-                        src={currentRoom.roomImage?.[0]?.url || "/placeholder.svg"}
-                        alt="Current room image"
-                        fill
-                        className="object-cover rounded-md"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                        <p className="text-white text-sm">Click or drag image to change</p>
+                        }}
+                      >
+                        <Image
+                          src={currentRoom.roomImage?.[0]?.url || "/placeholder.svg"}
+                          alt="Current room image"
+                          fill
+                          className="object-cover rounded-md"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                          <p className="text-white text-sm">Click or drag image to change</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  <Input
-                    id="edit-image"
-                    type="file"
-                    accept="image/*"
-                    ref={editImageInputRef}
-                    onChange={handleEditImageChange}
-                  />
-                </div>
-
-                {/* Right column on desktop - Basic info */}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-title">Room Title</Label>
+                    )}
                     <Input
-                      id="edit-title"
-                      value={currentRoom.room_title}
-                      onChange={(e) => setCurrentRoom({ ...currentRoom, room_title: e.target.value })}
+                      id="edit-image"
+                      type="file"
+                      accept="image/*"
+                      ref={editImageInputRef}
+                      onChange={handleEditImageChange}
+                    />
+                    </div>
+
+                  {/* Right column on desktop - Basic info */}
+                    <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-title">Room Title</Label>
+                      <Input
+                        id="edit-title"
+                        value={currentRoom.room_title}
+                        onChange={(e) => setCurrentRoom({ ...currentRoom, room_title: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-description">Description</Label>
+                      <Textarea
+                        id="edit-description"
+                        value={currentRoom.desc}
+                        onChange={(e) => setCurrentRoom({ ...currentRoom, desc: e.target.value })}
+                        className="min-h-[100px]"
+                      />
+                    </div>
+                    </div>
+                </div>
+
+                {/* Bottom section - Room details */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-maxPerson">Max Person</Label>
+                    <Input
+                      id="edit-maxPerson"
+                      type="number"
+                      value={currentRoom.max_person || 0}
+                      onChange={(e) => setCurrentRoom({ 
+                        ...currentRoom, 
+                        max_person: e.target.value ? Number(e.target.value) : 0 
+                      })}
+                      min="0"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="edit-description">Description</Label>
-                    <Textarea
-                      id="edit-description"
-                      value={currentRoom.desc}
-                      onChange={(e) => setCurrentRoom({ ...currentRoom, desc: e.target.value })}
-                      className="min-h-[100px]"
+                    <Label htmlFor="edit-maxChildren">Max Children</Label>
+                    <Input
+                      id="edit-maxChildren"
+                      type="number"
+                      value={currentRoom.max_children || 0}
+                      onChange={(e) => setCurrentRoom({ 
+                        ...currentRoom, 
+                        max_children: e.target.value ? Number(e.target.value) : 0 
+                      })}
+                      min="0"
                     />
                   </div>
-                </div>
-              </div>
 
-              {/* Bottom section - Room details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-maxPerson">Max Person</Label>
-                  <Input
-                    id="edit-maxPerson"
-                    type="number"
-                    value={currentRoom.max_person || 0}
-                    onChange={(e) => setCurrentRoom({ 
-                      ...currentRoom, 
-                      max_person: e.target.value ? Number(e.target.value) : 0 
-                    })}
-                    min="0"
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-totalRooms">Total Rooms</Label>
+                    <Input
+                      id="edit-totalRooms"
+                      type="number"
+                      value={currentRoom.totalRooms || 0}
+                      onChange={(e) => setCurrentRoom({ 
+                        ...currentRoom, 
+                        totalRooms: e.target.value ? Number(e.target.value) : 0 
+                      })}
+                      min="0"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-roomSize">Room Size (sq ft)</Label>
+                    <Input
+                      id="edit-roomSize"
+                      type="number"
+                      value={currentRoom.roomSize || 0}
+                      onChange={(e) => setCurrentRoom({ 
+                        ...currentRoom, 
+                        roomSize: e.target.value ? Number(e.target.value) : 0 
+                      })}
+                      min="0"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-pricePerNight">Price Per Night</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                      <Input
+                        id="edit-pricePerNight"
+                        type="number"
+                        value={currentRoom.pricePerNight || 0}
+                        onChange={(e) => setCurrentRoom({ 
+                          ...currentRoom, 
+                          pricePerNight: e.target.value ? Number(e.target.value) : 0 
+                        })}
+                        style={numberInputStyles}
+                        className="pl-8"
+                      />
+                    </div>
+                  </div>
+
+
+                  
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="edit-maxChildren">Max Children</Label>
-                  <Input
-                    id="edit-maxChildren"
-                    type="number"
-                    value={currentRoom.max_children || 0}
-                    onChange={(e) => setCurrentRoom({ 
-                      ...currentRoom, 
-                      max_children: e.target.value ? Number(e.target.value) : 0 
-                    })}
-                    min="0"
-                  />
-                </div>
+                {/* Add bed type, amenities, and additional details sections */}
+                <div className="col-span-full grid gap-6">
+                  {/* Bed Type Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-bedType">Bed Type</Label>
+                    <select
+                      id="edit-bedType"
+                      className="w-full border rounded-md p-2"
+                      value={currentRoom.bedType}
+                      onChange={(e) => setCurrentRoom({ ...currentRoom, bedType: e.target.value })}
+                    >
+                      <option value="Single">Single</option>
+                      <option value="Double">Double</option>
+                      <option value="Queen">Queen</option>
+                      <option value="King">King</option>
+                      <option value="Twin">Twin</option>
+                    </select>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="edit-totalRooms">Total Rooms</Label>
-                  <Input
-                    id="edit-totalRooms"
-                    type="number"
-                    value={currentRoom.totalRooms || 0}
-                    onChange={(e) => setCurrentRoom({ 
-                      ...currentRoom, 
-                      totalRooms: e.target.value ? Number(e.target.value) : 0 
-                    })}
-                    min="0"
-                  />
-                </div>
+                  {/* Amenities Section */}
+                  <div className="space-y-2">
+                    <Label>Amenities</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newAmenity}
+                        onChange={(e) => setNewAmenity(e.target.value)}
+                        placeholder="Add amenity"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (newAmenity.trim()) {
+                            const updatedAmenities = Array.isArray(currentRoom.amenities)
+                              ? [...currentRoom.amenities, newAmenity.trim()]
+                              : [newAmenity.trim()];
+                            setCurrentRoom({
+                              ...currentRoom,
+                              amenities: updatedAmenities
+                            });
+                            setNewAmenity('');
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {Array.isArray(currentRoom.amenities) && currentRoom.amenities.map((amenity, index) => (
+                        <div
+                          key={index}
+                          className="bg-gray-100 px-3 py-1 rounded-full flex items-center gap-2"
+                        >
+                          <span>{amenity}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentRoom({
+                                ...currentRoom,
+                                amenities: currentRoom.amenities.filter((_, i) => i !== index)
+                              });
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="edit-roomSize">Room Size (sq ft)</Label>
-                  <Input
-                    id="edit-roomSize"
-                    type="number"
-                    value={currentRoom.roomSize || 0}
-                    onChange={(e) => setCurrentRoom({ 
-                      ...currentRoom, 
-                      roomSize: e.target.value ? Number(e.target.value) : 0 
-                    })}
-                    min="0"
-                  />
+                  {/* Additional Details Section */}
+                  <div className="space-y-2">
+                    <Label>Additional Details</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newDetail}
+                        onChange={(e) => setNewDetail(e.target.value)}
+                        placeholder="Add detail"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (newDetail.trim()) {
+                            const updatedDetails = Array.isArray(currentRoom.additionalDetails)
+                              ? [...currentRoom.additionalDetails, newDetail.trim()]
+                              : [newDetail.trim()];
+                            setCurrentRoom({
+                              ...currentRoom,
+                              additionalDetails: updatedDetails
+                            });
+                            setNewDetail('');
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {Array.isArray(currentRoom.additionalDetails) && currentRoom.additionalDetails.map((detail, index) => (
+                        <div
+                          key={index}
+                          className="bg-gray-100 px-3 py-1 rounded-full flex items-center gap-2"
+                        >
+                          <span>{detail}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentRoom({
+                                ...currentRoom,
+                                additionalDetails: currentRoom.additionalDetails.filter((_, i) => i !== index)
+                              });
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
             </div>
+            </>
           )}
+        {/* </DialogContent> */}
+          
           <DialogFooter className="sm:justify-end">
             <Button
               variant="outline"
@@ -1016,6 +1401,7 @@ const deleteRoom = async (roomId: string) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+   
     </div>
   )
 }
