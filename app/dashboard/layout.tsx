@@ -9,47 +9,46 @@ import { Toaster } from "@/components/toaster"
 
 export default function DashboardLayout({ children }) {
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
-  const [mounted, setMounted] = useState(false)
-
-  // Log on mount and state changes
-  useEffect(() => {
-    setMounted(true)
-    console.group('Dashboard Authentication State')
-    console.log('Component mounted:', mounted)
-    console.log('Is authenticated:', isAuthenticated)
-    console.log('Auth state:', localStorage.getItem('auth-state'))
-    console.log('Auth token:', localStorage.getItem('auth-token'))
-    console.groupEnd()
-
-    // Cleanup function
-    return () => {
-      console.log('Dashboard component unmounting')
-    }
-  }, [isAuthenticated, mounted])
+  const { isAuthenticated, isInitialized } = useAuthStore()
 
   useEffect(() => {
-    const authState = window.localStorage.getItem('auth-state')
-    const token = window.localStorage.getItem('auth-token')
-    console.log("Auth state:", authState)
-    console.log("Token:", token)  
-    console.log("Is authenticated:", isAuthenticated)
-
-    if (!authState || !token || !isAuthenticated) {
-      router.push("/login")
+    // Only check auth after initialization is complete
+    if (!isInitialized) {
+      return
     }
-  }, [isAuthenticated, router])
 
-  if (!isAuthenticated) {
-    return null // Return null while redirecting
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
+      router.replace("/login")
+    }
+  }, [isAuthenticated, isInitialized, router])
+
+  // Show loading while auth is being initialized
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
+  // If not authenticated, don't render anything (redirect will happen)
+  if (!isAuthenticated) {
+    return null
+  }
+
+  // Render dashboard for authenticated users
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <PermissionBasedSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto bg-gray-50">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6">
+          {children}
+        </main>
         <Toaster />
       </div>
     </div>

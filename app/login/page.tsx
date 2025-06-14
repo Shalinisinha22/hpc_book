@@ -14,12 +14,25 @@ import { Toaster } from "@/components/toaster"
 
 export default function LoginPage() {
   const router = useRouter()
-  const login = useAuthStore((state) => state.login)
+  const { login, isAuthenticated, isInitialized } = useAuthStore()
 
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isInitialized && isAuthenticated) {
+      const redirectPath = window.localStorage.getItem('redirect-after-login')
+      if (redirectPath) {
+        window.localStorage.removeItem('redirect-after-login')
+        router.push(redirectPath)
+      } else {
+        router.push("/dashboard")
+      }
+    }
+  }, [isAuthenticated, isInitialized, router])
 
   // Hotel highlights to display
   const hotelHighlights = [
@@ -52,6 +65,23 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
+  // Show loading while auth is initializing
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render login form if already authenticated (redirect will happen)
+  if (isAuthenticated) {
+    return null
+  }
+
   const handlePasswordLogin = async (e) => {
     e.preventDefault()
     setError("")
@@ -61,7 +91,14 @@ export default function LoginPage() {
       const result = await login(email, password)
 
       if (result.success) {
-        router.push("/dashboard")
+        // Check if there's a redirect URL stored
+        const redirectPath = window.localStorage.getItem('redirect-after-login')
+        if (redirectPath) {
+          window.localStorage.removeItem('redirect-after-login')
+          router.push(redirectPath)
+        } else {
+          router.push("/dashboard")
+        }
       } else {
         setError(result.message || "Login failed")
       }

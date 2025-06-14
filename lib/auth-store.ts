@@ -1,30 +1,33 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { PREDEFINED_ROLES, type Permission } from "@/lib/permissions"
-import { isTokenValid } from "./utils/token-validator"
+import { isTokenExpired, parseJwt } from './auth-utils'
+
 
 interface AuthState {
   isAuthenticated: boolean
+  isInitialized: boolean
   user: {
     id: string
     email: string
     name: string
     roleId: string
     permissions: Permission[]
-    token: string  // Add token field
+    token: string
   } | null
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
-  // loginWithOtp: (email: string, otp: string) => Promise<{ success: boolean; message?: string }>
   logout: () => void
   hasPermission: (permission: Permission) => boolean
-  checkTokenValidity: () => boolean
   handleTokenExpiration: () => void
+  setupTokenExpirationCheck: () => void
+  initializeAuth: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       isAuthenticated: false,
+      isInitialized: false,
       user: null,
       login: async (email, password) => {
         try {
@@ -56,7 +59,6 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          // Set both auth state and localStorage
           const authState = {
             isAuthenticated: true,
             user: {
@@ -71,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
 
           set(authState)
           
-          // Store token separately in localStorage
+          // Store in localStorage
           window.localStorage.setItem('auth-token', token)
           window.localStorage.setItem('auth-state', JSON.stringify(authState))
 
@@ -84,12 +86,18 @@ export const useAuthStore = create<AuthState>()(
           }
         }
       },
+
       logout: () => {
         window.localStorage.removeItem('auth-token')
         window.localStorage.removeItem('auth-state')
         set({ isAuthenticated: false, user: null })
         // Redirect to login page if we're in the browser
         if (typeof window !== 'undefined') {
+          // Store the current page to redirect back after login
+          const currentPath = window.location.pathname
+          if (currentPath !== '/login' && currentPath !== '/') {
+            window.localStorage.setItem('redirect-after-login', currentPath)
+          }
           window.location.href = '/login'
         }
       },
@@ -98,47 +106,99 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return false
         return user.permissions.includes(permission)
       },
-      checkTokenValidity: () => {
-        const { user } = get()
-        if (!user || !user.token) return false
-        return isTokenValid(user.token)
+
+      setupTokenExpirationCheck: () => {
+        const { user, handleTokenExpiration } = get()
+        
+        // Check localStorage first
+        const storedToken = window.localStorage.getItem('auth-token')
+        const token = user?.token || storedToken
+        
+        if (!token) return
+        
+        if (isTokenExpired(token)) {
+          handleTokenExpiration()
+          return
+        }
+
+        const decoded = parseJwt(token)
+        if (!decoded?.exp) return
+        
+        const timeUntilExpiry = (decoded.exp * 1000) - Date.now()
+        
+        if (typeof window !== 'undefined') {
+          if (window.__tokenExpirationTimeout) {
+            clearTimeout(window.__tokenExpirationTimeout)
+          }
+          window.__tokenExpirationTimeout = setTimeout(handleTokenExpiration, timeUntilExpiry)
+        }
       },
+
       handleTokenExpiration: () => {
-        console.warn('Token has expired, logging out user')
-        get().logout()
+        console.warn('Token has expired')
+        const { logout } = get()
+        logout()
       },
+
+      initializeAuth: () => {
+        try {
+          const token = window.localStorage.getItem('auth-token')
+          const authState = window.localStorage.getItem('auth-state')
+
+          if (token && authState && !isTokenExpired(token)) {
+            const state = JSON.parse(authState)
+            if (state?.user) {
+              state.user.token = token
+              set({ 
+                ...state, 
+                isInitialized: true 
+              })
+              // Set up token expiration checking
+              const { setupTokenExpirationCheck } = get()
+              setupTokenExpirationCheck()
+              return
+            }
+          }
+          
+          // If no valid auth data, just mark as initialized
+          set({ isInitialized: true })
+        } catch (error) {
+          console.error('Error initializing auth:', error)
+          set({ isInitialized: true })
+        }
+      }
     }),
     {
       name: "auth-storage",
+      partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+        user: state.user,
+        // Don't persist isInitialized - it should always start as false
+      }),
       storage: {
         getItem: (name) => {
           try {
-            const authState = window.localStorage.getItem('auth-state')
             const token = window.localStorage.getItem('auth-token')
+            const authState = window.localStorage.getItem('auth-state')
 
-            if (!authState || !token) {
-              set({ isAuthenticated: false, user: null })
+            if (!token || !authState) {
               return null
             }
 
-            // Check if token is still valid
-            if (!isTokenValid(token)) {
-              console.warn('Stored token is expired, clearing auth state')
+            if (isTokenExpired(token)) {
               window.localStorage.removeItem('auth-token')
               window.localStorage.removeItem('auth-state')
-              set({ isAuthenticated: false, user: null })
               return null
             }
 
             const state = JSON.parse(authState)
-            return {
-              state: {
-                ...state,
-                isAuthenticated: true
-              }
+            if (state?.user) {
+              state.user.token = token
             }
+            // Always start with isInitialized: false
+            state.isInitialized = false
+            return { state }
           } catch {
-            set({ isAuthenticated: false, user: null })
             return null
           }
         },
@@ -151,10 +211,6 @@ export const useAuthStore = create<AuthState>()(
           window.localStorage.removeItem('auth-state')
         },
       },
-      partialize: (state) => ({
-        isAuthenticated: state.isAuthenticated,
-        user: state.user
-      }),
     }
   )
 )

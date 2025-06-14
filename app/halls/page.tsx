@@ -21,8 +21,10 @@ import { Plus, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { AddHallForm } from "@/components/add-hall-form"
 import { apiCall } from "@/lib/api-utils"
+import { withAuth } from "@/components/withAuth"
+import { useTokenErrorHandler } from "@/hooks/useTokenErrorHandler"
 
-export default function HallsPage() {
+function HallsPage() {
   const [halls, setHalls] = useState<Hall[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isAddHallOpen, setIsAddHallOpen] = useState(false)
@@ -32,6 +34,7 @@ export default function HallsPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const { toast } = useToast()
+  const { handleApiError } = useTokenErrorHandler()
 
   // Helper function to convert base64 data URL to File object
   const dataURLtoFile = (dataurl: string, filename: string): File => {
@@ -65,17 +68,8 @@ export default function HallsPage() {
     } catch (error) {
       console.error("Fetch halls error:", error)
       
-      // Check if it's an authentication error (handled by apiCall)
-      if (error instanceof Error && error.message.includes('Authentication')) {
-        // apiCall already handled logout and redirect, just return
-        return
-      }
-      
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to fetch halls",
-        variant: "destructive",
-      })
+      // Use the token error handler to handle authentication errors
+      handleApiError(error, "Failed to fetch halls")
       setHalls([]) // Set empty array on error
     } finally {
       setIsLoading(false)
@@ -580,3 +574,5 @@ export default function HallsPage() {
     </div>
   )
 }
+
+export default withAuth(HallsPage)

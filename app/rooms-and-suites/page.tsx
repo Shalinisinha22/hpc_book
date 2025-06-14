@@ -453,51 +453,6 @@ const handleNewImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
   }
 
   
-const updateRoom = async (roomId: string, roomData: FormData) => {
-  try {
-    const token = localStorage.getItem("auth-token");
-    if (!token) {
-      throw new Error("User not authenticated");
-    }
-
-    const formDataObj = Object.fromEntries(roomData.entries());
-    console.log("Updating room with data:", formDataObj);
-
-    const response = await fetch(`http://localhost:8000/api/v1/rooms/${roomId}`, {
-      method: "PUT",
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        room_title: formDataObj.room_title,
-        desc: formDataObj.desc,
-        max_person: parseInt(formDataObj.max_person as string),
-        max_children: parseInt(formDataObj.max_children as string),
-        totalRooms: parseInt(formDataObj.totalRooms as string),
-        roomSize: parseInt(formDataObj.roomSize as string),
-        // roomView: formDataObj.roomView,
-        amenities: formDataObj.amenities,  
-        additionalDetails: formDataObj.additionalDetails,
-        bedType: formDataObj.bedType,
-        pricePerNight: parseFloat(formDataObj.pricePerNight as string) ,
-        status: formDataObj.status,
-        ...(formDataObj.roomImage && { roomImage: JSON.parse(formDataObj.roomImage as string) })
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to update room");
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Update room error:", error);
-    throw error;
-  }
-};
 
 const deleteRoom = async (roomId: string) => {
   try {

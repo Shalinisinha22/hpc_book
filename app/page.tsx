@@ -18,26 +18,27 @@ import { PageHeader } from "@/components/page-header"
 
 export default function Dashboard() {
   const router = useRouter()
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const { isAuthenticated, isInitialized } = useAuthStore()
   const [dateRange, setDateRange] = useState({
     from: new Date(2023, 0, 1),
     to: new Date(2023, 11, 31),
   })
 
   useEffect(() => {
-    // Redirect to dashboard if authenticated, otherwise to login
-    if (isAuthenticated === null) {
+    // Only redirect after auth is initialized
+    if (!isInitialized) {
       return
     }
+    
     if (isAuthenticated) {
       router.push("/dashboard")
     } else {
       router.push("/login")
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isInitialized, router])
 
-  // Return null while redirecting
-  if (isAuthenticated === null) {
+  // Return null while initializing or redirecting
+  if (!isInitialized) {
     return null
   }
 

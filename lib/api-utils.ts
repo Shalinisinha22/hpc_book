@@ -1,5 +1,11 @@
 import { useAuthStore } from '@/lib/auth-store'
 import { isTokenValid } from '@/lib/utils/token-validator'
+import { 
+  isTokenError, 
+  isTokenExpiredResponse, 
+  handleTokenExpiration, 
+  getTokenErrorMessage 
+} from '@/lib/token-handler'
 
 export const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
   const token = localStorage.getItem('auth-token')
@@ -30,35 +36,24 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
   if (response.status === 401) {
     console.warn('Received 401 Unauthorized response, token may be invalid')
     
-    // Try to get error details from response
-    let errorMessage = 'Authentication expired'
     try {
       const errorData = await response.json()
       
-      // Handle your backend's specific error format
-      if (errorData.error) {
-        if (errorData.error === 'Invalid token' || 
-            errorData.error === 'No token provided' || 
-            errorData.error === 'User not found' ||
-            errorData.error === 'Please authenticate') {
-          errorMessage = 'Invalid or expired token'
-        } else {
-          errorMessage = errorData.error
-        }
-      } else if (errorData.message && errorData.message.toLowerCase().includes('token')) {
-        errorMessage = 'Invalid or expired token'
+      // Use the token handler to check and handle token errors
+      if (isTokenError(errorData)) {
+        const errorMessage = getTokenErrorMessage(errorData)
+        handleTokenExpiration(errorData)
+        throw new Error(errorMessage)
+      } else {
+        // Non-token related 401 error
+        throw new Error(errorData.error || errorData.message || 'Unauthorized')
       }
-    } catch (e) {
-      // If we can't parse the error response, use default message
-      console.warn('Could not parse 401 error response:', e)
+    } catch (parseError) {
+      // If we can't parse the error response, assume token issue
+      console.warn('Could not parse 401 error response:', parseError)
+      handleTokenExpiration()
+      throw new Error('Authentication expired. Please log in again.')
     }
-    
-    // Clear auth state and redirect to login
-    useAuthStore.getState().logout()
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
-    }
-    throw new Error(errorMessage)
   }
 
   if (response.status === 403) {
@@ -78,7 +73,29 @@ export const apiCall = async <T = any>(
     const response = await authenticatedFetch(url, options)
     
     if (!response.ok) {
-      // Try to get error message from response
+      // Handle 401 specifically for token expiration
+      if (response.status === 401) {
+        try {
+          const errorData = await response.json()
+          
+          // Use the token handler to check and handle token errors
+          if (isTokenError(errorData)) {
+            const errorMessage = getTokenErrorMessage(errorData)
+            handleTokenExpiration(errorData)
+            throw new Error(errorMessage)
+          } else {
+            // Non-token related 401 error
+            throw new Error(errorData.error || errorData.message || 'Unauthorized')
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, assume token issue
+          console.warn('Could not parse 401 error response:', parseError)
+          handleTokenExpiration()
+          throw new Error('Authentication expired. Please log in again.')
+        }
+      }
+      
+      // Handle other HTTP errors
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`
       try {
         const errorData = await response.json()
@@ -109,13 +126,13 @@ export const apiCall = async <T = any>(
   }
 }
 
-// Example usage in a component
-const SecuredComponent = () => {
-  const hasPermission = useAuthStore(state => state.hasPermission)
-  
-  if (!hasPermission('MANAGE_USERS')) {
-    return <div>Access Denied</div>
-  }
-
-  return <div>Protected Content</div>
-}
+// Example usage in a component:
+// const SecuredComponent = () => {
+//   const hasPermission = useAuthStore(state => state.hasPermission)
+//   
+//   if (!hasPermission('MANAGE_USERS')) {
+//     return <div>Access Denied</div>
+//   }
+//
+//   return <div>Protected Content</div>
+// }
