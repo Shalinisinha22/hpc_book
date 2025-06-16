@@ -322,8 +322,8 @@ export default function BookingDetailsPage({ params }) {
               <div className="mb-4 md:mb-0">
                 <div className="flex items-center mb-4">
                   <Image
-                    src="/generic-indian-emblem.png"
-                    alt="The Royal Bihar"
+                          src="/hotel-patliputra-logo.png"
+                          alt="Hotel Patliputra Continental Logo"
                     width={120}
                     height={60}
                     className="mr-2"
