@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/components/ui/use-toast"
 import { uploadToCloudinary } from '@/config/cloudinary';
+import { API_ROUTES } from "@/config/api"
 
 
 interface Room {
@@ -116,7 +117,7 @@ const fetchRooms = async () => {
       throw new Error("User not authenticated");
     }
 
-    const response = await fetch("http://localhost:8000/api/v1/rooms", {
+    const response = await fetch(API_ROUTES.rooms, {
       method: "GET",
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -185,7 +186,7 @@ const fetchRooms = async () => {
       const token = localStorage.getItem("auth-token");
       if (!token) throw new Error("Not authenticated");
 
-      const response = await fetch("http://localhost:8000/api/v1/rooms", {
+      const response = await fetch(API_ROUTES.rooms, {
         method: "POST",
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -289,7 +290,7 @@ const fetchRooms = async () => {
       }
 
       // Send update request
-      const response = await fetch(`http://localhost:8000/api/v1/rooms/${currentRoom._id}`, {
+      const response = await fetch(`${API_ROUTES.rooms}/${currentRoom._id}`, {
         method: "PUT",
         headers: {
           'Authorization': `Bearer ${localStorage.getItem("auth-token")}`,
@@ -461,7 +462,7 @@ const deleteRoom = async (roomId: string) => {
       throw new Error("User not authenticated");
     }
 
-    const response = await fetch(`http://localhost:8000/api/v1/rooms/${roomId}`, {
+    const response = await fetch(`${API_ROUTES.rooms}/${roomId}`, {
       method: "DELETE",
       headers: {
         'Authorization': `Bearer ${token}`,

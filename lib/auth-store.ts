@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { PREDEFINED_ROLES, type Permission } from "@/lib/permissions"
 import { isTokenExpired, parseJwt } from './auth-utils'
+import { API_ROUTES } from "@/config/api"
 
 
 interface AuthState {
@@ -31,7 +32,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       login: async (email, password) => {
         try {
-          const response = await fetch("http://localhost:8000/api/v1/users/login", {
+          const response = await fetch(API_ROUTES.users.login, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
