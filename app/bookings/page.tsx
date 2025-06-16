@@ -14,6 +14,7 @@ import { Pagination } from "@/components/pagination"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/components/ui/use-toast"
 import * as XLSX from "xlsx"
+import { API_ROUTES } from "@/config/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,17 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 
+// Define the booking interface based on the API response
+interface Booking {
+  confirmation: string;
+  bookingId: string;
+  name: string;
+  email: string;
+  contact: string;
+  bookingDate: string;
+  paymentStatus: string;
+}
+
 export default function BookingsPage() {
   const router = useRouter()
   const [dateFrom, setDateFrom] = useState("")
@@ -47,120 +59,61 @@ export default function BookingsPage() {
   const [isPrinting, setIsPrinting] = useState(false)
   const [bookingToEdit, setBookingToEdit] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [bookingsData, setBookingsData] = useState([
-    {
-      id: "TRB0081",
-      status: "Pending",
-      name: "asdf",
-      email: "asdf@asdf.dfg",
-      contact: "2342342343",
-      date: "22-04-2025",
-      paymentStatus: "Not paid",
-    },
-    {
-      id: "TRB0080",
-      status: "Accepted",
-      name: "murari",
-      email: "mbmb1964@gmail.com",
-      contact: "7549275863",
-      date: "19-04-2025",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "TRB0079",
-      status: "Accepted",
-      name: "Ankush",
-      email: "ankush2001garg@gmail.com",
-      contact: "95926 44716",
-      date: "17-04-2025",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "TRB0078",
-      status: "Pending",
-      name: "test",
-      email: "pk1093524@gmail.com",
-      contact: "9564854785",
-      date: "03-04-2025",
-      paymentStatus: "Not paid",
-    },
-    {
-      id: "TRB0077",
-      status: "Pending",
-      name: "test",
-      email: "test@gmail.com",
-      contact: "0123456789",
-      date: "02-04-2025",
-      paymentStatus: "Not paid",
-    },
-    {
-      id: "TRB0076",
-      status: "Accepted",
-      name: "Arpit",
-      email: "arpit.jiva@gmail.com",
-      contact: "9549103548",
-      date: "29-03-2025",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "TRB0075",
-      status: "Accepted",
-      name: "Arpit",
-      email: "arpit.jiva@gmail.com",
-      contact: "9549103548",
-      date: "27-03-2025",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "TRB0074",
-      status: "Rejected",
-      name: "test",
-      email: "test@gmail.com",
-      contact: "0123456789",
-      date: "17-03-2025",
-      paymentStatus: "Not paid",
-    },
-    {
-      id: "TRB0073",
-      status: "Accepted",
-      name: "RITAV",
-      email: "ronnieculer29@gmail.com",
-      contact: "8902753322",
-      date: "08-02-2025",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "TRB0072",
-      status: "Pending",
-      name: "John Doe",
-      email: "john.doe@example.com",
-      contact: "1234567890",
-      date: "05-02-2025",
-      paymentStatus: "Not paid",
-    },
-    {
-      id: "TRB0071",
-      status: "Accepted",
-      name: "Jane Smith",
-      email: "jane.smith@example.com",
-      contact: "9876543210",
-      date: "01-02-2025",
-      paymentStatus: "Paid",
-    },
-    {
-      id: "TRB0070",
-      status: "Rejected",
-      name: "Robert Johnson",
-      email: "robert.j@example.com",
-      contact: "5551234567",
-      date: "28-01-2025",
-      paymentStatus: "Not paid",
-    },
-  ])
+  const [bookingsData, setBookingsData] = useState<Booking[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Add pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
+
+  // Fetch bookings from API
+  const fetchBookings = async () => {
+    try {
+      setIsLoading(true)
+      const token = localStorage.getItem("auth-token")
+      if (!token) {
+        throw new Error("Not authenticated")
+      }
+
+      const response = await fetch(API_ROUTES.bookings, {
+        method: "GET",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to fetch bookings")
+      }
+
+      const data = await response.json()
+      console.log("Fetched bookings:", data)
+
+      // Check if response has the expected structure
+      if (data.status === "success" && Array.isArray(data.data)) {
+        setBookingsData(data.data)
+      } else {
+        throw new Error("Invalid response format")
+      }
+    } catch (error) {
+      console.error("Fetch bookings error:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch bookings",
+        variant: "destructive",
+      })
+      setBookingsData([]) // Set empty array on error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchBookings()
+  }, [])
 
   useEffect(() => {
     // Reset to first page when filters change
@@ -172,14 +125,15 @@ export default function BookingsPage() {
     const filtered = bookingsData.filter((booking) => {
       // Filter by date range if both dates are provided
       if (dateFrom && dateTo) {
-        const bookingDate = new Date(booking.date.split("-").reverse().join("-"))
+        const bookingDate = new Date(booking.bookingDate)
         const fromDate = new Date(dateFrom)
         const toDate = new Date(dateTo)
         if (bookingDate < fromDate || bookingDate > toDate) return false
       }
 
-      // Filter by confirmation status
-      if (confirmStatus !== "All" && booking.status !== confirmStatus) return false
+      // Filter by confirmation status - for now we'll treat all as "Pending" since API doesn't provide status
+      // You can modify this based on your actual API response structure
+      if (confirmStatus !== "All" && confirmStatus !== "Pending") return false
 
       // Filter by payment status
       if (paymentStatus !== "All" && booking.paymentStatus !== paymentStatus) return false
@@ -197,14 +151,14 @@ export default function BookingsPage() {
     return bookingsData.filter((booking) => {
       // Filter by date range if both dates are provided
       if (dateFrom && dateTo) {
-        const bookingDate = new Date(booking.date.split("-").reverse().join("-"))
+        const bookingDate = new Date(booking.bookingDate)
         const fromDate = new Date(dateFrom)
         const toDate = new Date(dateTo)
         if (bookingDate < fromDate || bookingDate > toDate) return false
       }
 
-      // Filter by confirmation status
-      if (confirmStatus !== "All" && booking.status !== confirmStatus) return false
+      // Filter by confirmation status - for now we'll treat all as "Pending" since API doesn't provide status
+      if (confirmStatus !== "All" && confirmStatus !== "Pending") return false
 
       // Filter by payment status
       if (paymentStatus !== "All" && booking.paymentStatus !== paymentStatus) return false
@@ -229,22 +183,58 @@ export default function BookingsPage() {
   }
 
   // Handle delete booking
-  const handleDeleteBooking = (bookingId) => {
-    // In a real app, you would call an API to delete the booking
-    setBookingsData((prevData) => prevData.filter((booking) => booking.id !== bookingId))
+  const handleDeleteBooking = async (bookingId) => {
+    try {
+      setIsDeleting(true)
+      const token = localStorage.getItem("auth-token")
+      if (!token) {
+        throw new Error("Not authenticated")
+      }
 
-    // For this demo, we're just logging the action
-    console.log(`Booking ${bookingId} deleted`)
+      console.log(`Deleting booking ${bookingId}`)
 
-    // Show success message
-    toast({
-      title: "Booking deleted",
-      description: `Booking ${bookingId} has been deleted successfully.`,
-      variant: "default",
-    })
+      const response = await fetch(`${API_ROUTES.bookings}/${bookingId}`, {
+        method: "DELETE",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      })
 
-    // Close the dialog
-    setBookingToDelete(null)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to delete booking")
+      }
+
+      const data = await response.json()
+      console.log('Booking deleted successfully:', data)
+
+      // Refresh the bookings list to get the latest data
+      await fetchBookings()
+
+      // Show success message
+      toast({
+        title: "Booking deleted",
+        description: `Booking ${bookingId} has been deleted successfully.`,
+        variant: "default",
+      })
+
+      // Close the dialog
+      setBookingToDelete(null)
+
+    } catch (error) {
+      console.error("Delete booking error:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete booking",
+        variant: "destructive",
+      })
+      
+      // Close the dialog even on error to prevent UI from being stuck
+      setBookingToDelete(null)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   // Handle row selection
@@ -262,7 +252,7 @@ export default function BookingsPage() {
 
     const newSelectedRows = {}
     getCurrentPageData().forEach((booking) => {
-      newSelectedRows[booking.id] = newSelectAll
+      newSelectedRows[booking.bookingId] = newSelectAll
     })
 
     setSelectedRows(newSelectedRows)
@@ -270,7 +260,7 @@ export default function BookingsPage() {
 
   // Get selected bookings
   const getSelectedBookings = () => {
-    return getCurrentPageData().filter((booking) => selectedRows[booking.id])
+    return getCurrentPageData().filter((booking) => selectedRows[booking.bookingId])
   }
 
   // Handle copy data
@@ -296,12 +286,12 @@ export default function BookingsPage() {
 
       selectedBookings.forEach((booking) => {
         const row = [
-          booking.id,
-          booking.status,
+          booking.bookingId,
+          booking.confirmation,
           booking.name,
           booking.email,
           booking.contact,
-          booking.date,
+          new Date(booking.bookingDate).toLocaleDateString(),
           booking.paymentStatus,
         ]
         copyText += row.join("\t") + "\n"
@@ -348,12 +338,12 @@ export default function BookingsPage() {
 
       // Format the data for Excel
       const excelData = dataToExport.map((booking) => ({
-        "Booking ID": booking.id,
-        "Confirmation Status": booking.status,
+        "Booking ID": booking.bookingId,
+        "Confirmation": booking.confirmation,
         Name: booking.name,
         Email: booking.email,
         Contact: booking.contact,
-        "Booking Date": booking.date,
+        "Booking Date": new Date(booking.bookingDate).toLocaleDateString(),
         "Payment Status": booking.paymentStatus,
       }))
 
@@ -481,158 +471,42 @@ export default function BookingsPage() {
 
       // Add each booking to the print content
       selectedBookings.forEach((booking, index) => {
-        // Mock data for the booking details
-        const mockBookingDetails = {
-          id: booking.id,
-          invoiceYear: "2025-2026",
-          status: booking.status,
-          guest: {
-            name: booking.name,
-            email: booking.email,
-            phone: booking.contact,
-            address: "123 Main St, City, Country",
-          },
-          stay: {
-            checkIn: "22-04-2025",
-            checkOut: "23-04-2025",
-            roomType: "Premium Suite",
-            numberOfRooms: "1",
-            pax: {
-              adult: "2",
-              children: "0",
-            },
-            package: "Best Flexible Rate with WiFi",
-          },
-          payment: {
-            bookingDate: booking.date,
-            billAmount: "21004",
-            method: "Credit Card",
-            status: booking.paymentStatus,
-            specialRequests: "",
-            rate: "17,800",
-            amount: "17,800",
-            subtotal: "17,800.00",
-            taxRate: "12",
-            taxAmount: "3,204.00",
-            grandTotal: "21,004.00",
-            transactionNumber: "TXN123456",
-          },
-        }
-
         printContent += `
           <div class="booking-container">
             <div class="header">
               <div class="logo">The Royal Bihar</div>
-              <div class="invoice-number">Invoice No.: TRB / ${mockBookingDetails.invoiceYear} / ${
-                mockBookingDetails.id
-              }</div>
+              <div class="invoice-number">Booking ID: ${booking.bookingId}</div>
             </div>
 
             <div class="section">
               <div class="section-title">Guest Details</div>
               <div class="detail-row">
                 <div class="detail-label">Name:</div>
-                <div class="detail-value">${mockBookingDetails.guest.name}</div>
+                <div class="detail-value">${booking.name}</div>
               </div>
               <div class="detail-row">
                 <div class="detail-label">Email:</div>
-                <div class="detail-value">${mockBookingDetails.guest.email}</div>
+                <div class="detail-value">${booking.email}</div>
               </div>
               <div class="detail-row">
                 <div class="detail-label">Phone:</div>
-                <div class="detail-value">${mockBookingDetails.guest.phone}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Address:</div>
-                <div class="detail-value">${mockBookingDetails.guest.address}</div>
+                <div class="detail-value">${booking.contact}</div>
               </div>
             </div>
 
             <div class="section">
-              <div class="section-title">Stay Details</div>
-              <div class="detail-row">
-                <div class="detail-label">Check-in Date:</div>
-                <div class="detail-value">${mockBookingDetails.stay.checkIn}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Check-out Date:</div>
-                <div class="detail-value">${mockBookingDetails.stay.checkOut}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Room Type:</div>
-                <div class="detail-value">${mockBookingDetails.stay.roomType}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Number of Room(s):</div>
-                <div class="detail-value">${mockBookingDetails.stay.numberOfRooms}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Pax:</div>
-                <div class="detail-value">Adult: ${mockBookingDetails.stay.pax.adult}, Children: ${
-                  mockBookingDetails.stay.pax.children
-                }</div>
-              </div>
-            </div>
-
-            <div class="section">
-              <div class="section-title">Payment Details</div>
+              <div class="section-title">Booking Details</div>
               <div class="detail-row">
                 <div class="detail-label">Booking Date:</div>
-                <div class="detail-value">${mockBookingDetails.payment.bookingDate}</div>
+                <div class="detail-value">${new Date(booking.bookingDate).toLocaleDateString()}</div>
               </div>
               <div class="detail-row">
-                <div class="detail-label">Payment Method:</div>
-                <div class="detail-value">${mockBookingDetails.payment.method}</div>
+                <div class="detail-label">Confirmation:</div>
+                <div class="detail-value">${booking.confirmation}</div>
               </div>
               <div class="detail-row">
                 <div class="detail-label">Payment Status:</div>
-                <div class="detail-value">${mockBookingDetails.payment.status}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Confirmation Status:</div>
-                <div class="detail-value">${mockBookingDetails.status}</div>
-              </div>
-            </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>S. NO.</th>
-                  <th>ROOMS/SERVICES</th>
-                  <th>PAX</th>
-                  <th>PACKAGE/DESCRIPTION</th>
-                  <th>RATE</th>
-                  <th>AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>01</td>
-                  <td>${mockBookingDetails.stay.roomType}</td>
-                  <td>Adult: ${mockBookingDetails.stay.pax.adult}, Children: ${
-                    mockBookingDetails.stay.pax.children
-                  }</td>
-                  <td>${mockBookingDetails.stay.package}</td>
-                  <td>₹ ${mockBookingDetails.payment.rate} /-</td>
-                  <td>₹ ${mockBookingDetails.payment.amount} /-</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div class="total-section">
-              <div class="total-table">
-                <div class="total-row">
-                  <div class="total-label">SUBTOTAL</div>
-                  <div class="total-value">₹${mockBookingDetails.payment.subtotal}</div>
-                </div>
-                <div class="total-row">
-                  <div class="total-label">TAX ${mockBookingDetails.payment.taxRate}%</div>
-                  <div class="total-value">₹ ${mockBookingDetails.payment.taxAmount}</div>
-                </div>
-                <div class="total-row grand-total">
-                  <div class="total-label">GRAND TOTAL</div>
-                  <div class="total-value">₹${mockBookingDetails.payment.grandTotal}/-</div>
-                </div>
+                <div class="detail-value">${booking.paymentStatus}</div>
               </div>
             </div>
 
@@ -697,38 +571,141 @@ export default function BookingsPage() {
   }
 
   // Handle edit booking
-  const handleEditBooking = (booking) => {
-    setBookingToEdit(booking)
-    setIsEditing(true)
+  const handleEditBooking = async (booking) => {
+    try {
+      // Fetch full booking details for editing
+      const token = localStorage.getItem("auth-token")
+      if (!token) {
+        throw new Error("Not authenticated")
+      }
+
+      const response = await fetch(`${API_ROUTES.bookings}/${booking.bookingId}`, {
+        method: "GET",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to fetch booking details")
+      }
+
+      const data = await response.json()
+      console.log("Fetched booking details for editing:", data)
+
+      // Handle both wrapped and direct response formats
+      const fullBooking = data.status === "success" ? data.data : (data.bookingId ? data : null)
+      
+      if (!fullBooking) {
+        throw new Error("Invalid booking data received")
+      }
+
+      // Map the full booking data to match the form field names
+      const mappedBooking = {
+        bookingId: fullBooking.bookingId,
+        name: fullBooking.fullName,
+        email: fullBooking.email,
+        contact: fullBooking.phone,
+        checkInDate: fullBooking.checkInDate,
+        checkOutDate: fullBooking.checkOutDate,
+        noOfRooms: fullBooking.noOfRooms,
+        noOfGuests: fullBooking.noOfGuests,
+        totalPrice: fullBooking.totalPrice,
+        specialRequest: fullBooking.specialRequest,
+        paymentStatus: fullBooking.paymentStatus
+      }
+      
+      console.log('Mapped booking for form:', mappedBooking)
+      
+      setBookingToEdit(mappedBooking)
+      setIsEditing(true)
+
+    } catch (error) {
+      console.error("Error fetching booking details for editing:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load booking details for editing",
+        variant: "destructive",
+      })
+    }
   }
 
   // Handle save booking
-  const handleSaveBooking = (editedBooking) => {
-    // In a real app, you would call an API to update the booking
-    console.log(`Booking ${editedBooking.id} updated:`, editedBooking)
+  const handleSaveBooking = async (editedBooking) => {
+    try {
+      const token = localStorage.getItem("auth-token")
+      if (!token) {
+        throw new Error("Not authenticated")
+      }
 
-    // Update the bookingsData state with the edited booking
-    setBookingsData((prevData) =>
-      prevData.map((booking) => (booking.id === editedBooking.id ? editedBooking : booking)),
-    )
+      // Prepare the update data - only send fields that can be updated
+      const updateData = {
+        fullName: editedBooking.name,
+        email: editedBooking.email,
+        phone: editedBooking.contact,
+        paymentStatus: editedBooking.paymentStatus,
+        // Convert datetime-local back to ISO string
+        checkInDate: editedBooking.checkInDate ? new Date(editedBooking.checkInDate).toISOString() : null,
+        checkOutDate: editedBooking.checkOutDate ? new Date(editedBooking.checkOutDate).toISOString() : null,
+        noOfRooms: editedBooking.noOfRooms ? Number(editedBooking.noOfRooms) : 1,
+        noOfGuests: {
+          adults: editedBooking.adults ? Number(editedBooking.adults) : 1,
+          children: editedBooking.children ? Number(editedBooking.children) : 0
+        },
+        totalPrice: editedBooking.totalPrice ? Number(editedBooking.totalPrice) : 0,
+        specialRequest: editedBooking.specialRequest || ""
+      }
 
-    // Show success message
-    toast({
-      title: "Booking updated",
-      description: `Booking ${editedBooking.id} has been updated successfully.`,
-      variant: "default",
-    })
+      console.log(`Updating booking ${editedBooking.bookingId} with data:`, updateData)
 
-    // Close the dialog
-    setIsEditing(false)
-    setBookingToEdit(null)
+      const response = await fetch(`${API_ROUTES.bookings}/${editedBooking.bookingId}`, {
+        method: "PUT",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to update booking")
+      }
+
+      const data = await response.json()
+      console.log('Booking updated successfully:', data)
+
+      // Refresh the bookings list to get the latest data
+      await fetchBookings()
+
+      // Show success message
+      toast({
+        title: "Booking updated",
+        description: `Booking ${editedBooking.bookingId} has been updated successfully.`,
+        variant: "default",
+      })
+
+      // Close the dialog
+      setIsEditing(false)
+      setBookingToEdit(null)
+
+    } catch (error) {
+      console.error("Update booking error:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update booking",
+        variant: "destructive",
+      })
+    }
   }
 
   // Count selected rows
   const selectedCount = Object.values(selectedRows).filter(Boolean).length
 
   // Update the part where you render pagination
-  const totalPages = Math.ceil(getCurrentPageData().length / itemsPerPage)
+  const totalPages = Math.ceil(getAllFilteredData().length / itemsPerPage)
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -809,8 +786,9 @@ export default function BookingsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="All">All</SelectItem>
-                        <SelectItem value="Paid">Paid</SelectItem>
-                        <SelectItem value="Not paid">Not paid</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -897,67 +875,86 @@ export default function BookingsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {getCurrentPageData().map((booking, index) => (
-                    <tr key={booking.id} className={`hover:bg-gray-50 ${selectedRows[booking.id] ? "bg-blue-50" : ""}`}>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <Checkbox
-                          checked={selectedRows[booking.id] || false}
-                          onCheckedChange={() => toggleRowSelection(booking.id)}
-                          aria-label={`Select booking ${booking.id}`}
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-gray-500"
-                            onClick={() => handleViewBooking(booking.id)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-gray-500"
-                            onClick={() => handlePrintBooking(booking.id)}
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-red-500"
-                            onClick={() => setBookingToDelete(booking.id)}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mr-2"></div>
+                          Loading bookings...
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <ConfirmationBadge status={booking.status} />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gold">{booking.id}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.name}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.email}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.contact}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.date}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <PaymentBadge status={booking.paymentStatus} />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-gray-500"
-                          onClick={() => handleEditBooking(booking)}
-                          aria-label={`Edit booking ${booking.id}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                    </tr>
+                  ) : getCurrentPageData().length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                        No bookings found
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    getCurrentPageData().map((booking, index) => (
+                      <tr key={booking.bookingId} className={`hover:bg-gray-50 ${selectedRows[booking.bookingId] ? "bg-blue-50" : ""}`}>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <Checkbox
+                            checked={selectedRows[booking.bookingId] || false}
+                            onCheckedChange={() => toggleRowSelection(booking.bookingId)}
+                            aria-label={`Select booking ${booking.bookingId}`}
+                          />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-gray-500"
+                              onClick={() => handleViewBooking(booking.bookingId)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-gray-500"
+                              onClick={() => handlePrintBooking(booking.bookingId)}
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-red-500"
+                              onClick={() => setBookingToDelete(booking.bookingId)}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <ConfirmationBadge status="Pending" />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gold">{booking.bookingId}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.email}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.contact}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {new Date(booking.bookingDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <PaymentBadge status={booking.paymentStatus} />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-gray-500"
+                            onClick={() => handleEditBooking(booking)}
+                            aria-label={`Edit booking ${booking.bookingId}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -968,7 +965,7 @@ export default function BookingsPage() {
         </main>
       </div>
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={bookingToDelete !== null} onOpenChange={(open) => !open && setBookingToDelete(null)}>
+      <AlertDialog open={bookingToDelete !== null} onOpenChange={(open) => !open && !isDeleting && setBookingToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to delete this booking?</AlertDialogTitle>
@@ -978,12 +975,20 @@ export default function BookingsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => handleDeleteBooking(bookingToDelete)}
               className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
             >
-              Delete
+              {isDeleting ? (
+                <>
+                  <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -991,7 +996,7 @@ export default function BookingsPage() {
 
       {/* Edit Booking Dialog */}
       <Dialog open={isEditing} onOpenChange={(open) => !open && setIsEditing(false)}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Booking</DialogTitle>
             <DialogDescription>
@@ -1001,101 +1006,170 @@ export default function BookingsPage() {
 
           {bookingToEdit && (
             <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                const formData = new FormData(e.target)
-                const editedBooking = {
-                  id: bookingToEdit.id,
-                  name: formData.get("name"),
-                  email: formData.get("email"),
-                  contact: formData.get("contact"),
-                  date: formData.get("date"),
-                  status: formData.get("status"),
-                  paymentStatus: formData.get("paymentStatus"),
-                }
-                handleSaveBooking(editedBooking)
-              }}
+            onSubmit={(e) => {
+            e.preventDefault()
+            const formData = new FormData(e.target)
+            const editedBooking = {
+            bookingId: bookingToEdit.bookingId,
+            name: formData.get("name"),
+            email: formData.get("email"),
+            contact: formData.get("contact"),
+            checkInDate: formData.get("checkInDate"),
+            checkOutDate: formData.get("checkOutDate"),
+            noOfRooms: formData.get("noOfRooms"),
+            adults: formData.get("adults"),
+            children: formData.get("children"),
+            totalPrice: formData.get("totalPrice"),
+            specialRequest: formData.get("specialRequest"),
+            paymentStatus: formData.get("paymentStatus"),
+            }
+            handleSaveBooking(editedBooking)
+            }}
             >
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="id" className="text-right">
-                    Booking ID
-                  </Label>
-                  <Input id="id" value={bookingToEdit.id} className="col-span-3" disabled />
+            <div className="space-y-6 py-4">
+              {/* Booking ID - Read Only */}
+              <div className="space-y-2">
+                <Label htmlFor="bookingId">Booking ID</Label>
+                <Input id="bookingId" value={bookingToEdit.bookingId} disabled className="bg-gray-50" />
+              </div>
+              
+              {/* Guest Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Guest Information</h3>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name *</Label>
+                  <Input id="name" name="name" defaultValue={bookingToEdit.name} required />
                 </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input id="name" name="name" defaultValue={bookingToEdit.name} className="col-span-3" required />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    defaultValue={bookingToEdit.email}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="contact" className="text-right">
-                    Contact
-                  </Label>
-                  <Input
-                    id="contact"
-                    name="contact"
-                    defaultValue={bookingToEdit.contact}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="date" className="text-right">
-                    Booking Date
-                  </Label>
-                  <Input id="date" name="date" defaultValue={bookingToEdit.date} className="col-span-3" required />
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="status" className="text-right">
-                    Status
-                  </Label>
-                  <Select name="status" defaultValue={bookingToEdit.status}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pending">Pending</SelectItem>
-                      <SelectItem value="Accepted">Accepted</SelectItem>
-                      <SelectItem value="Rejected">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="paymentStatus" className="text-right">
-                    Payment Status
-                  </Label>
-                  <Select name="paymentStatus" defaultValue={bookingToEdit.paymentStatus}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select payment status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Paid">Paid</SelectItem>
-                      <SelectItem value="Not paid">Not paid</SelectItem>
-                    </SelectContent>
-                  </Select>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      defaultValue={bookingToEdit.email}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="contact">Phone *</Label>
+                    <Input
+                      id="contact"
+                      name="contact"
+                      defaultValue={bookingToEdit.contact}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
+              
+              {/* Booking Details */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Booking Details</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="checkInDate">Check-in Date</Label>
+                    <Input 
+                      id="checkInDate" 
+                      name="checkInDate" 
+                      type="date"
+                      defaultValue={bookingToEdit.checkInDate ? new Date(bookingToEdit.checkInDate).toISOString().slice(0, 10) : ''} 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="checkOutDate">Check-out Date</Label>
+                    <Input 
+                      id="checkOutDate" 
+                      name="checkOutDate" 
+                      type="date"
+                      defaultValue={bookingToEdit.checkOutDate ? new Date(bookingToEdit.checkOutDate).toISOString().slice(0, 10) : ''} 
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="noOfRooms">Number of Rooms</Label>
+                    <Input
+                      id="noOfRooms"
+                      name="noOfRooms"
+                      type="number"
+                      min="1"
+                      defaultValue={bookingToEdit.noOfRooms || 1}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="adults">Adults</Label>
+                    <Input
+                      id="adults"
+                      name="adults"
+                      type="number"
+                      min="1"
+                      defaultValue={bookingToEdit.noOfGuests?.adults || 1}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="children">Children</Label>
+                    <Input
+                      id="children"
+                      name="children"
+                      type="number"
+                      min="0"
+                      defaultValue={bookingToEdit.noOfGuests?.children || 0}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Payment & Additional Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Payment & Additional Information</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="totalPrice">Total Price (₹)</Label>
+                    <Input
+                      id="totalPrice"
+                      name="totalPrice"
+                      type="number"
+                      min="0"
+                      defaultValue={bookingToEdit.totalPrice || 0}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentStatus">Payment Status</Label>
+                    <Select name="paymentStatus" defaultValue={bookingToEdit.paymentStatus}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="specialRequest">Special Request</Label>
+                  <Input
+                    id="specialRequest"
+                    name="specialRequest"
+                    defaultValue={bookingToEdit.specialRequest || ''}
+                    placeholder="Any special requests..."
+                  />
+                </div>
+              </div>
+            </div>
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
@@ -1122,8 +1196,19 @@ function ConfirmationBadge({ status }) {
 }
 
 function PaymentBadge({ status }) {
-  const isPaid = status === "Paid"
-  const bgColor = isPaid ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+  let bgColor = "bg-yellow-100 text-yellow-800"
+  let displayStatus = status
+  
+  if (status === "paid" || status === "Paid") {
+    bgColor = "bg-green-100 text-green-800"
+    displayStatus = "Paid"
+  } else if (status === "pending") {
+    bgColor = "bg-yellow-100 text-yellow-800"
+    displayStatus = "Pending"
+  } else if (status === "failed") {
+    bgColor = "bg-red-100 text-red-800"
+    displayStatus = "Failed"
+  }
 
-  return <Badge className={`${bgColor} font-medium`}>{status}</Badge>
+  return <Badge className={`${bgColor} font-medium`}>{displayStatus}</Badge>
 }

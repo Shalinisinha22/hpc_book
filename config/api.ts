@@ -6,6 +6,7 @@ export const API_ROUTES = {
   offers: `${API_BASE_URL}/api/v1/offers`,
   halls: `${API_BASE_URL}/api/v1/halls`,
   promocodes: `${API_BASE_URL}/api/v1/promocodes`,
+  bookings: `${API_BASE_URL}/api/v1/bookings`,
   users: {
     login: `${API_BASE_URL}/api/v1/users/login`,
   },
