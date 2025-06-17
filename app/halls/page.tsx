@@ -23,6 +23,7 @@ import { AddHallForm } from "@/components/add-hall-form"
 import { apiCall } from "@/lib/api-utils"
 import { withAuth } from "@/components/withAuth"
 import { useTokenErrorHandler } from "@/hooks/useTokenErrorHandler"
+import { add } from "date-fns"
 
 function HallsPage() {
   const [halls, setHalls] = useState<Hall[]>([])
@@ -178,8 +179,8 @@ function HallsPage() {
         height: Number(data.height),
         area: Number(data.area),
         guest_entry_point: data.guestEntryPoint,
-        phone: data.phone,
-        email: data.email,
+        phone:data.phone,
+        email:data.email,
         seating: {
           theatre: Number(data.seatingStyles.theater) || 0,
           ushaped: Number(data.seatingStyles.uShaped) || 0,
@@ -188,6 +189,7 @@ function HallsPage() {
           reception: Number(data.seatingStyles.reception) || 0
         },
         hall_image: imageData ? [imageData] : [],
+        additionalDetails: data.additionalDetails || [],
         status: "available"
       };
 
@@ -329,8 +331,8 @@ function HallsPage() {
         height: Number(data.height),
         area: Number(data.area),
         guest_entry_point: data.guestEntryPoint,
-        phone: data.phone,
-        email: data.email,
+        phone:data.phone,
+        email:data.email,
         seating: {
           theatre: Number(data.seatingStyles.theater) || 0,
           ushaped: Number(data.seatingStyles.uShaped) || 0,
@@ -338,6 +340,7 @@ function HallsPage() {
           classroom: Number(data.seatingStyles.classroom) || 0,
           reception: Number(data.seatingStyles.reception) || 0
         },
+        additionalDetails:data.additionalDetails || [],
         status: "available",
         // Only include hall_image if new image was uploaded
         ...(imageData && { hall_image: [imageData] })

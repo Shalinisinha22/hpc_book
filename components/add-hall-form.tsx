@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast"
 export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
   const { toast } = useToast()
   const [imagePreview, setImagePreview] = useState(null)
+  const [newDetail, setNewDetail] = useState("")
   const [formData, setFormData] = useState({
     id: null,
     name: "",
@@ -22,10 +23,10 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
     height: "",
     area: "",
     guestEntryPoint: "",
-    phone: "",
-    email: "",
     image: null,
     imageUrl: "",
+    phone: "",
+    email:"",
     seatingStyles: {
       theater: "",
       uShaped: "",
@@ -33,6 +34,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
       classroom: "",
       reception: "",
     },
+    additionalDetails: [],
   })
 
   // Initialize form with initial data if provided
@@ -63,8 +65,8 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
         height: height || initialData.height?.toString() || "",
         area: initialData.area?.toString() || "",
         guestEntryPoint: initialData.guest_entry_point || initialData.guestEntryPoint || "",
-        phone: initialData.phone || "",
-        email: initialData.email || "",
+        phone:initialData.phone || "",
+        email:initialData.email || "",
         image: null,
         imageUrl: initialData.hall_image?.[0]?.url || initialData.image || initialData.imageUrl || "",
         seatingStyles: {
@@ -74,6 +76,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
           classroom: initialData.seating?.classroom?.toString() || initialData.seatingStyles?.classroom || "",
           reception: initialData.seating?.reception?.toString() || initialData.seatingStyles?.reception || "",
         },
+        additionalDetails: initialData.additionalDetails || [],
       })
 
       // Set image preview
@@ -174,8 +177,8 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
       height: formData.height,
       area: formData.area,
       guestEntryPoint: formData.guestEntryPoint,
-      phone: formData.phone,
-      email: formData.email,
+      phone:formData.phone,
+      email:formData.email,
       seatingStyles: {
         theater: formData.seatingStyles.theater,
         uShaped: formData.seatingStyles.uShaped,
@@ -183,6 +186,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
         classroom: formData.seatingStyles.classroom,
         reception: formData.seatingStyles.reception,
       },
+      additionalDetails: formData.additionalDetails,
       // Pass the image file directly
       image: formData.image,
       imageUrl: formData.imageUrl,
@@ -254,7 +258,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
-          <Label htmlFor="length">Length (Mt.)</Label>
+          <Label htmlFor="length">Length (ft.)</Label>
           <Input
             id="length"
             name="length"
@@ -267,7 +271,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
           />
         </div>
         <div>
-          <Label htmlFor="breadth">Breadth (Mt.)</Label>
+          <Label htmlFor="breadth">Breadth (ft.)</Label>
           <Input
             id="breadth"
             name="breadth"
@@ -280,7 +284,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
           />
         </div>
         <div>
-          <Label htmlFor="height">Height (Mt.)</Label>
+          <Label htmlFor="height">Height (ft.)</Label>
           <Input
             id="height"
             name="height"
@@ -296,7 +300,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <Label htmlFor="area">Area (Sq. Mt.)</Label>
+          <Label htmlFor="area">Area (Sq. ft.)</Label>
           <Input
             id="area"
             name="area"
@@ -322,7 +326,7 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <Label htmlFor="phone">Phone</Label>
           <Input
@@ -412,6 +416,54 @@ export function AddHallForm({ onSubmit, initialData = null, onCancel }) {
               className="mt-1"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Additional Details Section */}
+      <div className="space-y-2">
+        <Label>Additional Details</Label>
+        <div className="flex gap-2">
+          <Input
+            value={newDetail}
+            onChange={(e) => setNewDetail(e.target.value)}
+            placeholder="Add detail"
+          />
+          <Button
+            type="button"
+            onClick={() => {
+              if (newDetail.trim()) {
+                setFormData({
+                  ...formData,
+                  additionalDetails: [...(formData.additionalDetails || []), newDetail.trim()]
+                })
+                setNewDetail('')
+              }
+            }}
+          >
+            Add
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {formData.additionalDetails?.map((detail, index) => (
+            <div
+              key={index}
+              className="bg-gray-100 px-3 py-1 rounded-full flex items-center gap-2"
+            >
+              <span>{detail}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData({
+                    ...formData,
+                    additionalDetails: formData.additionalDetails?.filter((_, i) => i !== index)
+                  })
+                }}
+                className="text-red-500 hover:text-red-700"
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
