@@ -1,24 +1,62 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Sidebar } from "@/components/sidebar"
 import { PageHeader } from "@/components/page-header"
 import { Pagination } from "@/components/pagination"
 import { Input } from "@/components/ui/input"
+import { API_ROUTES } from "@/config/api"
 
 export default function CancelBookingsPage() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
 
+    const [bookings, setBookings] = useState<CancelledBooking[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [searchQuery, setSearchQuery] = useState("")
+  
+    useEffect(() => {
+      const fetchCancelledBookings = async () => {
+           const token = localStorage.getItem("auth-token")
+      if (!token) {
+        throw new Error("Not authenticated")
+      }
+        try {
+          const response = await fetch(API_ROUTES.bookings.cancelled, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          const result = await response.json()
+  
+          console.log('Cancelled bookings response:', result)
+          
+          if (result.status === 'success') {
+            setBookings(result.data)
+          }
+        } catch (error) {
+          console.error('Failed to fetch cancelled bookings:', error)
+        } finally {
+          setIsLoading(false)
+        }
+      }
+  
+      fetchCancelledBookings()
+    }, [])
+  
+    if (isLoading) {
+      return <div>Loading cancelled bookings...</div>
+    }
+
   // After the pagination state, add search state
-  const [searchQuery, setSearchQuery] = useState("")
+
 
   // Update the getCurrentPageData function to include filtering by search
   const getCurrentPageData = () => {
-    const filtered = cancelledBookingsData.filter((booking) => {
+    const filtered = bookings.filter((booking) => {
       if (!searchQuery) return true
 
       // Search in relevant fields
@@ -85,8 +123,10 @@ export default function CancelBookingsPage() {
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Holder Name
                     </th>
+                    
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">IFSC Code</th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Account No</th>
+                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">payment Status</th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
                   </tr>
@@ -94,14 +134,15 @@ export default function CancelBookingsPage() {
                 <tbody className="divide-y divide-gray-200">
                   {getCurrentPageData().map((booking) => (
                     <tr key={booking.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-orange-600">{booking.id}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-orange-600">{booking.bookingId}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.email}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">₹{booking.beforeCancel}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">₹{booking.totalPrice}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">₹{booking.charge}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">₹{booking.refundAmount}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.holderName}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.ifscCode}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.accountNo}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.paymentStatus}</td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <CancellationStatusBadge status={booking.status} />
                       </td>
@@ -121,7 +162,7 @@ export default function CancelBookingsPage() {
             </div>
 
             {/* Add pagination component */}
-            {cancelledBookingsData.length > 0 && (
+            {bookings.length > 0 && (
               <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
             )}
           </Card>

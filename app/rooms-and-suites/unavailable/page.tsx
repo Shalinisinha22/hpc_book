@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Info, Pencil, Trash2, Calendar } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,8 +8,10 @@ import { Sidebar } from "@/components/sidebar"
 import { PageHeader } from "@/components/page-header"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { format } from "date-fns"
+import { format, set } from "date-fns"
 import { Pagination } from "@/components/pagination"
+import axios from "axios"   
+import { API_ROUTES } from "@/config/api"
 
 interface UnavailableRoom {
   id: number
@@ -19,25 +21,48 @@ interface UnavailableRoom {
 }
 
 export default function UnavailableRoomsPage() {
-  const [unavailableRooms, setUnavailableRooms] = useState<UnavailableRoom[]>([
-    { id: 1, dateFrom: "2024-01-30", dateTo: "2024-02-04", roomType: "Standard Room" },
-    { id: 2, dateFrom: "2024-01-30", dateTo: "2024-02-04", roomType: "Executive Premium Suite" },
-    { id: 3, dateFrom: "2024-01-30", dateTo: "2024-02-04", roomType: "Premium Suite" },
-    { id: 4, dateFrom: "2024-01-30", dateTo: "2024-02-04", roomType: "Deluxe Room" },
-    { id: 5, dateFrom: "2024-01-30", dateTo: "2024-02-04", roomType: "Junior Deluxe Suite" },
-    { id: 6, dateFrom: "2024-01-30", dateTo: "2024-07-31", roomType: "The Royal Pent House" },
-    { id: 7, dateFrom: "2024-01-25", dateTo: "2024-08-31", roomType: "Studio Flat" },
-    { id: 8, dateFrom: "2024-01-30", dateTo: "2024-02-05", roomType: "Dormitory Rooms" },
-    { id: 9, dateFrom: "2024-10-19", dateTo: "2024-10-27", roomType: "Premium Suite" },
-    { id: 10, dateFrom: "2024-10-19", dateTo: "2024-10-27", roomType: "Premium Room" },
-  ])
-
+  const [unavailableRooms, setUnavailableRooms] = useState<UnavailableRoom[]>([])
+  const [availableRooms, setAvailableRooms] = useState<any[]>([])
   const [selectedRoom, setSelectedRoom] = useState<string>("")
   const [dateFrom, setDateFrom] = useState<string>("")
   const [dateTo, setDateTo] = useState<string>("")
   const [isEditing, setIsEditing] = useState<boolean>(false)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [roomTypes,setRoomTypes] = useState<string[]>([])
+  const [isLoadingRooms, setIsLoadingRooms] = useState<boolean>(false)
 
+    // Fetch available rooms count
+    useEffect(() => {
+      const fetchAvailableRooms = async () => {
+        try {
+          setIsLoadingRooms(true)
+          const response = await fetch(`${API_ROUTES.rooms}`)
+
+          console.log("Available rooms response:", response)
+          if (response.ok) {
+            const data = await response.json()
+            if (Array.isArray(data)) {
+              const availableRooms = data.filter((room: any) => room.status == "available")
+              const unavailableRooms= data.filter((room: any) => room.status == "unavailable")
+              setAvailableRooms(availableRooms)
+              setUnavailableRooms(unavailableRooms)
+              setRoomTypes(availableRooms.map((room: any) => room.room_title))
+
+
+            }  
+         
+          } else {
+            console.error('Failed to fetch available rooms:', response.statusText)
+          }
+        } catch (error) {
+          console.error('Error fetching available rooms:', error)
+        } finally {
+          setIsLoadingRooms(false)
+        }
+      }
+  
+      fetchAvailableRooms()
+    }, [])
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
@@ -55,18 +80,7 @@ export default function UnavailableRoomsPage() {
     setCurrentPage(page)
   }
 
-  const roomTypes = [
-    "Standard Room",
-    "Executive Premium Suite",
-    "Premium Suite",
-    "Deluxe Room",
-    "Junior Deluxe Suite",
-    "The Royal Pent House",
-    "Studio Flat",
-    "Big Family Rooms",
-    "Dormitory Rooms",
-    "Premium Room",
-  ]
+
 
   const handleSave = () => {
     if (!selectedRoom || !dateFrom || !dateTo) {
@@ -81,6 +95,17 @@ export default function UnavailableRoomsPage() {
 
     if (isEditing && editingId) {
       // Update existing room
+       try{
+         const response= await axios.put(`${API_ROUTES.rooms}/${editingId}`, {
+          dateFrom, 
+
+          dateTo,
+          roomType: selectedRoom
+       }
+       catch (error) {
+        console.error("Error updating room:", error)
+        alert("Failed to update room. Please try again.")
+        }
       setUnavailableRooms(
         unavailableRooms.map((room) =>
           room.id === editingId

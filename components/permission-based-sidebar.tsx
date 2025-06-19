@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAuthStore } from "@/lib/auth-store"
 import { Building } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { mainNavItems, hotelManagementItems, eventsItems, otherItems, type SidebarItem } from "@/config/sidebar-config"
+import { mainNavItems, hotelManagementItems,  otherItems, type SidebarItem } from "@/config/sidebar-config"
 
 const sidebarTransition = "transition-all duration-300 ease-in-out"
 
@@ -51,7 +51,7 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
     const active =
       findActiveItem(mainNavItems) ||
       findActiveItem(hotelManagementItems) ||
-      findActiveItem(eventsItems) ||
+      // findActiveItem(eventsItems) ||
       findActiveItem(otherItems)
 
     setActiveItem(active)
@@ -69,7 +69,7 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
 
   const filteredMainNavItems = filterItemsByPermission(mainNavItems)
   const filteredHotelManagementItems = filterItemsByPermission(hotelManagementItems)
-  const filteredEventsItems = filterItemsByPermission(eventsItems)
+  // const filteredEventsItems = filterItemsByPermission(eventsItems)
   const filteredOtherItems = filterItemsByPermission(otherItems)
 
   return (
@@ -153,7 +153,7 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
       )}
 
       {/* Events */}
-      {filteredEventsItems.length > 0 && (
+      {/* {filteredEventsItems.length > 0 && (
         <div className="p-4">
           {!collapsed && (
             <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Events</div>
@@ -172,7 +172,7 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
             ))}
           </nav>
         </div>
-      )}
+      )} */}
 
       {/* Other */}
       {filteredOtherItems.length > 0 && (

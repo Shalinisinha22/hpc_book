@@ -11,6 +11,20 @@ import { PageHeader } from "@/components/page-header"
 import { Pagination } from "@/components/pagination"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { toast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
+import { API_BASE_URL } from "@/config/api"
+
+// Define the user interface based on the API response
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: number;
+  role: string;
+  status: string;
+  cdate: string;
+  bookingIds: string[];
+}
 
 export default function MembersPage() {
   // Search state
@@ -23,6 +37,56 @@ export default function MembersPage() {
   const [selectedRows, setSelectedRows] = useState({})
   const [selectAll, setSelectAll] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
+  const [membersData, setMembersData] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch members from API
+  const fetchMembers = async () => {
+    try {
+      setIsLoading(true)
+      const token = localStorage.getItem("auth-token")
+      if (!token) {
+        throw new Error("Not authenticated")
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
+        method: "GET",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to fetch members")
+      }
+
+      const data = await response.json()
+      console.log("Fetched members:", data)
+
+      // Check if response has the expected structure
+      if (data.users && Array.isArray(data.users)) {
+        setMembersData(data.users)
+      } else {
+        throw new Error("Invalid response format")
+      }
+    } catch (error) {
+      console.error("Fetch members error:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch members",
+        variant: "destructive",
+      })
+      setMembersData([]) // Set empty array on error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchMembers()
+  }, [])
 
   useEffect(() => {
     // Reset to first page when search query changes
@@ -34,7 +98,8 @@ export default function MembersPage() {
     (member) =>
       member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.phone.includes(searchQuery),
+      member.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (member.phone && member.phone.toString().includes(searchQuery)),
   )
 
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage)
@@ -66,7 +131,7 @@ export default function MembersPage() {
 
     const newSelectedRows = {}
     getCurrentPageData().forEach((member) => {
-      newSelectedRows[member.id] = newSelectAll
+      newSelectedRows[member._id] = newSelectAll
     })
 
     setSelectedRows(newSelectedRows)
@@ -74,7 +139,7 @@ export default function MembersPage() {
 
   // Get selected members
   const getSelectedMembers = () => {
-    return getCurrentPageData().filter((member) => selectedRows[member.id])
+    return getCurrentPageData().filter((member) => selectedRows[member._id])
   }
 
   // Handle batch print
@@ -143,7 +208,7 @@ export default function MembersPage() {
         <div class="member-container">
           <div class="header">
             <div class="logo">The Royal Bihar</div>
-            <div>Member ID: ${member.id}</div>
+            <div>Member ID: ${member._id}</div>
           </div>
 
           <div class="section">
@@ -158,32 +223,24 @@ export default function MembersPage() {
             </div>
             <div class="detail-row">
               <div class="detail-label">Phone:</div>
-              <div class="detail-value">${member.phone}</div>
+              <div class="detail-value">${member.phone || 'N/A'}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Role:</div>
+              <div class="detail-value">${member.role}</div>
             </div>
             <div class="detail-row">
               <div class="detail-label">Join Date:</div>
-              <div class="detail-value">${member.joinDate}</div>
+              <div class="detail-value">${new Date(member.cdate).toLocaleDateString()}</div>
             </div>
             <div class="detail-row">
-              <div class="detail-label">Points:</div>
-              <div class="detail-value">${member.points}</div>
+              <div class="detail-label">Status:</div>
+              <div class="detail-value">${member.status}</div>
             </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Membership Benefits</div>
-            <ul>
-              <li>Exclusive access to member-only events</li>
-              <li>10% discount on all room bookings</li>
-              <li>Early check-in and late check-out when available</li>
-              <li>Complimentary welcome drink on arrival</li>
-              <li>Access to member lounge</li>
-            </ul>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Terms & Conditions</div>
-            <p>Membership is valid for one year from the date of joining. Points can be redeemed for room upgrades, dining, and spa services. The Royal Bihar reserves the right to modify the membership benefits at any time.</p>
+            <div class="detail-row">
+              <div class="detail-label">Total Bookings:</div>
+              <div class="detail-value">${member.bookingIds.length}</div>
+            </div>
           </div>
 
           <div class="footer">
@@ -247,23 +304,26 @@ export default function MembersPage() {
   }
 
   // Handle Excel export
-  const handleExcelExport = () => {
+  const handleExcelExport = async () => {
     try {
-      // Create a new workbook
-      const XLSX = require("xlsx")
-      const workbook = XLSX.utils.book_new()
-
+      const XLSX = await import("xlsx")
+      
       // Convert the data to a worksheet format
       const worksheet = XLSX.utils.json_to_sheet(
         filteredMembers.map((member) => ({
-          ID: member.id,
+          ID: member._id,
           Name: member.name,
           Email: member.email,
-          Phone: member.phone,
-          Points: member.points,
-          "Join Date": member.joinDate,
+          Phone: member.phone || 'N/A',
+          Role: member.role,
+          Status: member.status,
+          "Join Date": new Date(member.cdate).toLocaleDateString(),
+          "Total Bookings": member.bookingIds.length,
         })),
       )
+
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new()
 
       // Add the worksheet to the workbook
       XLSX.utils.book_append_sheet(workbook, worksheet, "Members")
@@ -417,12 +477,13 @@ export default function MembersPage() {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Name</th>
                 <th>Email</th>
                 <th>Phone</th>
-                <th>Points</th>
+                <th>Role</th>
+                <th>Status</th>
                 <th>Join Date</th>
+                <th>Bookings</th>
               </tr>
             </thead>
             <tbody>
@@ -430,12 +491,13 @@ export default function MembersPage() {
                 .map(
                   (member) => `
                 <tr>
-                  <td>${member.id}</td>
                   <td>${member.name}</td>
                   <td>${member.email}</td>
-                  <td>${member.phone}</td>
-                  <td>${member.points}</td>
-                  <td>${member.joinDate}</td>
+                  <td>${member.phone || 'N/A'}</td>
+                  <td>${member.role}</td>
+                  <td>${member.status}</td>
+                  <td>${new Date(member.cdate).toLocaleDateString()}</td>
+                  <td>${member.bookingIds.length}</td>
                 </tr>
               `,
                 )
@@ -504,15 +566,15 @@ export default function MembersPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="w-80">
-                      Below is a list of the people who have signed up as a member in the system to make the bookings.
+                      Below is a list of all users registered in the system including staff and customers.
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <p className="mt-2 text-sm text-gray-600">
-              Below is a list of the people who have signed up as a member in the system to make the bookings. You can
-              search for the members and can print the below list also.
+              Below is a list of all users registered in the system including staff and customers. You can
+              search for members and print the list.
             </p>
           </div>
 
@@ -568,44 +630,58 @@ export default function MembersPage() {
                     <th className="px-4 py-3 w-10">
                       <Checkbox checked={selectAll} onCheckedChange={toggleSelectAll} />
                     </th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
+                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
+                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Bookings</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {getCurrentPageData().map((member) => (
-                    <tr key={member.id} className={`hover:bg-gray-50 ${selectedRows[member.id] ? "bg-blue-50" : ""}`}>
-                      <td className="px-4 py-3">
-                        <Checkbox
-                          checked={selectedRows[member.id] || false}
-                          onCheckedChange={() => toggleRowSelection(member.id)}
-                          aria-label={`Select member ${member.id}`}
-                        />
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="mr-2">{member.id}</span>
-                          <Eye className="h-4 w-4 text-gray-400" />
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mr-2"></div>
+                          Loading members...
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{member.name}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{member.email}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{member.phone}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{member.points}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{member.joinDate}</td>
                     </tr>
-                  ))}
-
-                  {getCurrentPageData().length === 0 && (
+                  ) : getCurrentPageData().length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                         No members found
                       </td>
                     </tr>
+                  ) : (
+                    getCurrentPageData().map((member) => (
+                      <tr key={member._id} className={`hover:bg-gray-50 ${selectedRows[member._id] ? "bg-blue-50" : ""}`}>
+                        <td className="px-4 py-3">
+                          <Checkbox
+                            checked={selectedRows[member._id] || false}
+                            onCheckedChange={() => toggleRowSelection(member._id)}
+                            aria-label={`Select member ${member._id}`}
+                          />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{member.name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{member.email}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{member.phone || 'N/A'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <RoleBadge role={member.role} />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <StatusBadge status={member.status} />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {new Date(member.cdate).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {member.bookingIds.length}
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
@@ -627,189 +703,30 @@ export default function MembersPage() {
   )
 }
 
-const membersData = [
-  {
-    id: "23",
-    name: "Mr. Rohit",
-    email: "rkrao073@gmail.com",
-    phone: "7758399390",
-    points: "0",
-    joinDate: "17-04-2025",
-  },
-  {
-    id: "22",
-    name: "Prof. R. Shilpa",
-    email: "shilpamangla@gmail.com",
-    phone: "9949461015",
-    points: "0",
-    joinDate: "15-02-2025",
-  },
-  {
-    id: "21",
-    name: "Mr. Santhosh Kumar",
-    email: "joysontaac@gmail.com",
-    phone: "9994583713",
-    points: "0",
-    joinDate: "03-12-2024",
-  },
-  {
-    id: "20",
-    name: "Mr. Manju",
-    email: "manjujy@yahoo.com",
-    phone: "7899302201",
-    points: "0",
-    joinDate: "30-11-2024",
-  },
-  {
-    id: "19",
-    name: "Dr. Molezitze lusto cons",
-    email: "rykaassimo@mailinator.com",
-    phone: "9797979797",
-    points: "0",
-    joinDate: "26-11-2024",
-  },
-  {
-    id: "18",
-    name: "Mr. Prashant",
-    email: "pk1093524@gmail.com",
-    phone: "6204709038",
-    points: "0",
-    joinDate: "25-11-2024",
-  },
-  {
-    id: "17",
-    name: "Mr. Uttam",
-    email: "uttam931554@gmail.com",
-    phone: "7002793497",
-    points: "0",
-    joinDate: "24-11-2024",
-  },
-  {
-    id: "16",
-    name: "Dr. Sunil",
-    email: "drsunilbidawat@gmail.com",
-    phone: "9892941554",
-    points: "0",
-    joinDate: "24-11-2024",
-  },
-  {
-    id: "15",
-    name: "Mr. Amit",
-    email: "amit032016@outlook.com",
-    phone: "9810208101",
-    points: "0",
-    joinDate: "13-11-2024",
-  },
-  {
-    id: "14",
-    name: "Mr. Suresh",
-    email: "sureshir09@gmail.com",
-    phone: "9844068925",
-    points: "0",
-    joinDate: "08-11-2024",
-  },
-  {
-    id: "13",
-    name: "Mrs. Priya Sharma",
-    email: "priya.sharma@gmail.com",
-    phone: "9876543210",
-    points: "0",
-    joinDate: "05-11-2024",
-  },
-  {
-    id: "12",
-    name: "Mr. Rajesh Kumar",
-    email: "rajesh.kumar@hotmail.com",
-    phone: "8765432109",
-    points: "0",
-    joinDate: "01-11-2024",
-  },
-  {
-    id: "11",
-    name: "Dr. Ananya Patel",
-    email: "ananya.patel@doctor.com",
-    phone: "7654321098",
-    points: "0",
-    joinDate: "28-10-2024",
-  },
-  {
-    id: "10",
-    name: "Mr. Vikram Singh",
-    email: "vikram.singh@yahoo.com",
-    phone: "6543210987",
-    points: "0",
-    joinDate: "25-10-2024",
-  },
-  {
-    id: "9",
-    name: "Mrs. Neha Gupta",
-    email: "neha.gupta@gmail.com",
-    phone: "9876123450",
-    points: "0",
-    joinDate: "20-10-2024",
-  },
-  {
-    id: "8",
-    name: "Mr. Arun Joshi",
-    email: "arun.joshi@outlook.com",
-    phone: "8765123490",
-    points: "0",
-    joinDate: "15-10-2024",
-  },
-  {
-    id: "7",
-    name: "Prof. Meera Desai",
-    email: "meera.desai@university.edu",
-    phone: "7654123980",
-    points: "0",
-    joinDate: "10-10-2024",
-  },
-  {
-    id: "6",
-    name: "Mr. Karthik Reddy",
-    email: "karthik.reddy@gmail.com",
-    phone: "6543129870",
-    points: "0",
-    joinDate: "05-10-2024",
-  },
-  {
-    id: "5",
-    name: "Dr. Sanjay Mehta",
-    email: "sanjay.mehta@hospital.org",
-    phone: "9876543211",
-    points: "0",
-    joinDate: "01-10-2024",
-  },
-  {
-    id: "4",
-    name: "Mrs. Anjali Verma",
-    email: "anjali.verma@yahoo.com",
-    phone: "8765432112",
-    points: "0",
-    joinDate: "25-09-2024",
-  },
-  {
-    id: "3",
-    name: "Mr. Deepak Sharma",
-    email: "deepak.sharma@gmail.com",
-    phone: "7654321123",
-    points: "0",
-    joinDate: "20-09-2024",
-  },
-  {
-    id: "2",
-    name: "Prof. Sunita Rao",
-    email: "sunita.rao@college.edu",
-    phone: "6543211234",
-    points: "0",
-    joinDate: "15-09-2024",
-  },
-  {
-    id: "1",
-    name: "Mr. Harish Patel",
-    email: "harish.patel@outlook.com",
-    phone: "9876543212",
-    points: "0",
-    joinDate: "10-09-2024",
-  },
-]
+function RoleBadge({ role }) {
+  let bgColor = "bg-gray-100 text-gray-800"
+  
+  if (role === "admin") {
+    bgColor = "bg-red-100 text-red-800"
+  } else if (role === "HR") {
+    bgColor = "bg-blue-100 text-blue-800"
+  } else if (role === "Front Office") {
+    bgColor = "bg-green-100 text-green-800"
+  } else if (role === "user") {
+    bgColor = "bg-purple-100 text-purple-800"
+  }
+
+  return <Badge className={`${bgColor} font-medium`}>{role}</Badge>
+}
+
+function StatusBadge({ status }) {
+  let bgColor = "bg-gray-100 text-gray-800"
+  
+  if (status === "active") {
+    bgColor = "bg-green-100 text-green-800"
+  } else if (status === "inactive") {
+    bgColor = "bg-red-100 text-red-800"
+  }
+
+  return <Badge className={`${bgColor} font-medium`}>{status}</Badge>
+}

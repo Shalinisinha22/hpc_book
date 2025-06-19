@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowUp, ArrowDown, MoreHorizontal } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { SalesChart } from "@/components/sales-chart"
 import { OrdersChart } from "@/components/orders-chart"
 import { RecentBookings } from "@/components/recent-bookings"
 import { PageHeader } from "@/components/page-header"
+import { API_BASE_URL, API_ROUTES } from "@/config/api"
 // Remove the direct import of useTheme if it's causing issues
 // We'll use a more resilient approach
 
@@ -22,6 +23,14 @@ export default function Dashboard() {
   // Instead of using useTheme directly, we'll use a more resilient approach
   // that doesn't depend on the theme provider
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [totalBookings, setTotalBookings] = useState(0)
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true)
+  const [availableRooms, setAvailableRooms] = useState(0)
+  const [availableMembers,setAvailableMembers]= useState(0)
+  const [isLoadingMembers,setIsLoadingMembers]= useState(0)
+  const [isLoadingRooms, setIsLoadingRooms] = useState(true)
+  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [isLoadingRevenue, setIsLoadingRevenue] = useState(true)
 
   // Check for dark mode preference on component mount
   useState(() => {
@@ -31,6 +40,128 @@ export default function Dashboard() {
       setIsDarkMode(isDark)
     }
   })
+
+  // Fetch total bookings count
+  useEffect(() => {
+    const fetchBookingsCount = async () => {
+      try {
+        setIsLoadingBookings(true)
+        const response = await fetch(`${API_ROUTES.bookings}/counter`,{
+         
+            headers: {
+              "Authorization": `Bearer ${localStorage.getItem("auth-token")}`
+            }
+      
+        
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setTotalBookings(data.count || 0)
+        } else {
+          console.error('Failed to fetch bookings count:', response.statusText)
+        }
+      } catch (error) {
+        console.error('Error fetching bookings count:', error)
+      } finally {
+        setIsLoadingBookings(false)
+      }
+    }
+
+    fetchBookingsCount()
+  }, [])
+
+  // Fetch available rooms count
+  useEffect(() => {
+    const fetchAvailableRooms = async () => {
+      try {
+        setIsLoadingRooms(true)
+        const response = await fetch(`${API_ROUTES.rooms}/status/available/`, {
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem("auth-token")}`
+          }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          // Assuming the API returns an array of available rooms or an object with count
+          if (Array.isArray(data)) {
+            setAvailableRooms(data.length)
+          } else if (data.count !== undefined) {
+            setAvailableRooms(data.count)
+          } else {
+            setAvailableRooms(0)
+          }
+        } else {
+          console.error('Failed to fetch available rooms:', response.statusText)
+        }
+      } catch (error) {
+        console.error('Error fetching available rooms:', error)
+      } finally {
+        setIsLoadingRooms(false)
+      }
+    }
+
+    fetchAvailableRooms()
+  }, [])
+
+  //Fetch available membership count
+
+    useEffect(() => {
+    const fetchAvailableMembers = async () => {
+      try {
+        setIsLoadingRooms(true)
+        const response = await fetch(`${API_ROUTES.members}/`, {
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem("auth-token")}`
+          }
+        })
+        if (response.ok) {
+          const data = await response.json()
+       
+          if (Array.isArray(data)) {
+            setAvailableMembers(data.length)
+          } else if (data.count !== undefined) {
+            setAvailableMembers(data.count)
+          } else {
+            setAvailableMembers(0)
+          }
+        } else {
+          console.error('Failed to fetch available members:', response.statusText)
+        }
+      } catch (error) {
+        console.error('Error fetching available members:', error)
+      } finally {
+        setIsLoadingMembers(false)
+      }
+    }
+
+    fetchAvailableMembers()
+  }, [])
+
+  // Fetch total revenue
+  useEffect(() => {
+    const fetchTotalRevenue = async () => {
+      try {
+        setIsLoadingRevenue(true)
+        const response = await fetch(`${API_ROUTES.bookings}/revenue`, {
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem("auth-token")}`
+          }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setTotalRevenue(data.totalRevenue || 0)
+        } else {
+          console.error('Failed to fetch total revenue:', response.statusText)
+        }
+      } catch (error) {
+        console.error('Error fetching total revenue:', error)
+      } finally {
+        setIsLoadingRevenue(false)
+      }
+    }
+
+    fetchTotalRevenue()
+  }, [])
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -50,10 +181,10 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatsCard
               title="Total Bookings"
-              value="34"
-              change="+12.5%"
-              trend="up"
-              description="vs. previous period"
+              value={isLoadingBookings ? "Loading..." : totalBookings.toString()}
+              // change="+12.5%"
+              // trend="up"
+              // description="vs. previous period"
               icon={
                 <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-lg text-orange-500 dark:text-orange-300">
                   📅
@@ -62,10 +193,10 @@ export default function Dashboard() {
             />
             <StatsCard
               title="Available Rooms"
-              value="8"
-              change="-3"
-              trend="down"
-              description="from yesterday"
+              value={isLoadingRooms ? "Loading..." : availableRooms.toString()}
+              // change="-3"
+              // trend="down"
+              // description="from yesterday"
               icon={
                 <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg text-blue-500 dark:text-blue-300">
                   🏠
@@ -74,10 +205,10 @@ export default function Dashboard() {
             />
             <StatsCard
               title="Total Members"
-              value="23"
-              change="+5"
-              trend="up"
-              description="this month"
+              value={isLoadingMembers ? "Loading..." : availableMembers.toString()}
+              // change="+5"
+              // trend="up"
+              // description="this month"
               icon={
                 <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg text-green-500 dark:text-green-300">
                   👥
@@ -86,10 +217,10 @@ export default function Dashboard() {
             />
             <StatsCard
               title="Revenue"
-              value="₹2,76,500"
-              change="+8.2%"
-              trend="up"
-              description="vs. previous period"
+              value={isLoadingRevenue ? "Loading..." : `₹${totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+              // change="+8.2%"
+              // trend="up"
+              // description="vs. previous period"
               icon={
                 <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-lg text-purple-500 dark:text-purple-300">
                   💰
@@ -104,7 +235,7 @@ export default function Dashboard() {
               <TabsList className="bg-gray-100 dark:bg-gray-800">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="bookings">Bookings</TabsTrigger>
-                <TabsTrigger value="revenue">Revenue</TabsTrigger>
+                {/* <TabsTrigger value="revenue">Revenue</TabsTrigger> */}
               </TabsList>
             </div>
 
@@ -195,15 +326,15 @@ function StatsCard({ title, value, change, trend, description, icon }) {
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
             <h3 className="text-2xl font-bold mt-1 text-gray-900 dark:text-gray-100">{value}</h3>
             <div className="flex items-center mt-1">
-              <span
+              {/* <span
                 className={`text-xs font-medium flex items-center ${
                   trend === "up" ? "text-green-500 dark:text-green-400" : "text-red-500 dark:text-red-400"
                 }`}
               >
                 {trend === "up" ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
                 {change}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">{description}</span>
+              </span> */}
+              {/* <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">{description}</span> */}
             </div>
           </div>
           {icon}

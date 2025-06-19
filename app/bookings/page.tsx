@@ -44,6 +44,7 @@ interface Booking {
   contact: string;
   bookingDate: string;
   paymentStatus: string;
+  status: string;
 }
 
 export default function BookingsPage() {
@@ -76,7 +77,7 @@ export default function BookingsPage() {
         throw new Error("Not authenticated")
       }
 
-      const response = await fetch(API_ROUTES.bookings, {
+      const response = await fetch(API_ROUTES.bookings.all, {
         method: "GET",
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -94,6 +95,10 @@ export default function BookingsPage() {
 
       // Check if response has the expected structure
       if (data.status === "success" && Array.isArray(data.data)) {
+        // Log the first booking to see the structure
+        if (data.data.length > 0) {
+          console.log("First booking structure:", data.data[0])
+        }
         setBookingsData(data.data)
       } else {
         throw new Error("Invalid response format")
@@ -131,9 +136,14 @@ export default function BookingsPage() {
         if (bookingDate < fromDate || bookingDate > toDate) return false
       }
 
-      // Filter by confirmation status - for now we'll treat all as "Pending" since API doesn't provide status
-      // You can modify this based on your actual API response structure
-      if (confirmStatus !== "All" && confirmStatus !== "Pending") return false
+      // Filter by confirmation status using the actual status field
+      if (confirmStatus !== "All") {
+        const bookingStatus = booking.status || "pending"
+        if (confirmStatus === "Pending" && bookingStatus !== "pending") return false
+        if (confirmStatus === "Accepted" && bookingStatus !== "confirmed") return false
+        if (confirmStatus === "Rejected" && bookingStatus !== "canceled") return false
+        if (confirmStatus === "Completed" && bookingStatus !== "completed") return false
+      }
 
       // Filter by payment status
       if (paymentStatus !== "All" && booking.paymentStatus !== paymentStatus) return false
@@ -157,8 +167,14 @@ export default function BookingsPage() {
         if (bookingDate < fromDate || bookingDate > toDate) return false
       }
 
-      // Filter by confirmation status - for now we'll treat all as "Pending" since API doesn't provide status
-      if (confirmStatus !== "All" && confirmStatus !== "Pending") return false
+      // Filter by confirmation status using the actual status field
+      if (confirmStatus !== "All") {
+        const bookingStatus = booking.status || "pending"
+        if (confirmStatus === "Pending" && bookingStatus !== "pending") return false
+        if (confirmStatus === "Accepted" && bookingStatus !== "confirmed") return false
+        if (confirmStatus === "Rejected" && bookingStatus !== "canceled") return false
+        if (confirmStatus === "Completed" && bookingStatus !== "completed") return false
+      }
 
       // Filter by payment status
       if (paymentStatus !== "All" && booking.paymentStatus !== paymentStatus) return false
@@ -614,7 +630,8 @@ export default function BookingsPage() {
         noOfGuests: fullBooking.noOfGuests,
         totalPrice: fullBooking.totalPrice,
         specialRequest: fullBooking.specialRequest,
-        paymentStatus: fullBooking.paymentStatus
+        paymentStatus: fullBooking.paymentStatus,
+        status: fullBooking.status
       }
       
       console.log('Mapped booking for form:', mappedBooking)
@@ -646,6 +663,7 @@ export default function BookingsPage() {
         email: editedBooking.email,
         phone: editedBooking.contact,
         paymentStatus: editedBooking.paymentStatus,
+        status: editedBooking.status,
         // Convert datetime-local back to ISO string
         checkInDate: editedBooking.checkInDate ? new Date(editedBooking.checkInDate).toISOString() : null,
         checkOutDate: editedBooking.checkOutDate ? new Date(editedBooking.checkOutDate).toISOString() : null,
@@ -771,8 +789,9 @@ export default function BookingsPage() {
                     <SelectContent>
                       <SelectItem value="All">All</SelectItem>
                       <SelectItem value="Pending">Pending</SelectItem>
-                      <SelectItem value="Accepted">Accepted</SelectItem>
-                      <SelectItem value="Rejected">Rejected</SelectItem>
+                      <SelectItem value="Accepted">Confirmed</SelectItem>
+                      <SelectItem value="Rejected">Canceled</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -928,10 +947,11 @@ export default function BookingsPage() {
                             </Button>
                           </div>
                         </td>
+                      
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <ConfirmationBadge status="Pending" />
+                          <ConfirmationBadge status={booking.status} />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gold">{booking.bookingId}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gold">{booking.bookingId}{booking.status}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.name}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.email}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{booking.contact}</td>
@@ -1022,6 +1042,7 @@ export default function BookingsPage() {
             totalPrice: formData.get("totalPrice"),
             specialRequest: formData.get("specialRequest"),
             paymentStatus: formData.get("paymentStatus"),
+            status: formData.get("status"),
             }
             handleSaveBooking(editedBooking)
             }}
@@ -1157,6 +1178,21 @@ export default function BookingsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Confirmation Status</Label>
+                    <Select name="status" defaultValue={bookingToEdit.status || "pending"}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select confirmation status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="canceled">Canceled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
@@ -1189,10 +1225,23 @@ export default function BookingsPage() {
 
 function ConfirmationBadge({ status }) {
   let bgColor = "bg-yellow-100 text-yellow-800"
-  if (status === "Accepted") bgColor = "bg-green-100 text-green-800"
-  if (status === "Rejected") bgColor = "bg-red-100 text-red-800"
+  let displayStatus = status || "pending"
+  
+  if (status === "confirmed") {
+    bgColor = "bg-green-100 text-green-800"
+    displayStatus = "Confirmed"
+  } else if (status === "pending") {
+    bgColor = "bg-yellow-100 text-yellow-800"
+    displayStatus = "Pending"
+  } else if (status === "canceled") {
+    bgColor = "bg-red-100 text-red-800"
+    displayStatus = "Canceled"
+  } else if (status === "completed") {
+    bgColor = "bg-blue-100 text-blue-800"
+    displayStatus = "Completed"
+  }
 
-  return <Badge className={`${bgColor} font-medium`}>{status}</Badge>
+  return <Badge className={`${bgColor} font-medium`}>{displayStatus}</Badge>
 }
 
 function PaymentBadge({ status }) {
@@ -1208,6 +1257,27 @@ function PaymentBadge({ status }) {
   } else if (status === "failed") {
     bgColor = "bg-red-100 text-red-800"
     displayStatus = "Failed"
+  }
+
+  return <Badge className={`${bgColor} font-medium`}>{displayStatus}</Badge>
+}
+
+function StatusBadge({ status }) {
+  let bgColor = "bg-yellow-100 text-yellow-800"
+  let displayStatus = status
+  
+  if (status === "confirmed") {
+    bgColor = "bg-green-100 text-green-800"
+    displayStatus = "Confirmed"
+  } else if (status === "pending") {
+    bgColor = "bg-yellow-100 text-yellow-800"
+    displayStatus = "Pending"
+  } else if (status === "canceled") {
+    bgColor = "bg-red-100 text-red-800"
+    displayStatus = "Canceled"
+  } else if (status === "completed") {
+    bgColor = "bg-blue-100 text-blue-800"
+    displayStatus = "Completed"
   }
 
   return <Badge className={`${bgColor} font-medium`}>{displayStatus}</Badge>

@@ -57,12 +57,12 @@ export const mainNavItems: SidebarItem[] = [
     path: "/members",
     permission: PERMISSIONS.MEMBERS_VIEW,
   },
-  {
-    label: "Events Calendar",
-    icon: Calendar,
-    path: "/events-calendar",
-    permission: PERMISSIONS.EVENTS_VIEW,
-  },
+  // {
+  //   label: "Events Calendar",
+  //   icon: Calendar,
+  //   path: "/events-calendar",
+  //   permission: PERMISSIONS.EVENTS_VIEW,
+  // },
 ]
 
 // Hotel management items
@@ -115,12 +115,12 @@ export const hotelManagementItems: SidebarItem[] = [
     icon: Tag,
     permission: PERMISSIONS.DISCOUNTS_VIEW,
     children: [
-      {
-        label: "Special Offers",
-        icon: Tag,
-        path: "/discounts/offers",
-        permission: PERMISSIONS.DISCOUNTS_VIEW,
-      },
+      // {
+      //   label: "Special Offers",
+      //   icon: Tag,
+      //   path: "/discounts/offers",
+      //   permission: PERMISSIONS.DISCOUNTS_VIEW,
+      // },
       {
         label: "Promo Codes",
         icon: Tag,
@@ -207,72 +207,72 @@ export const hotelManagementItems: SidebarItem[] = [
 ]
 
 // Events items
-export const eventsItems: SidebarItem[] = [
-  {
-    label: "Meetings & Events",
-    icon: CalendarClock,
-    permission: PERMISSIONS.MEETINGS_VIEW,
-    children: [
-      {
-        label: "Meetings & Events",
-        icon: CalendarClock,
-        path: "/meetings-events",
-        permission: PERMISSIONS.MEETINGS_VIEW,
-      },
-      {
-        label: "Events",
-        icon: CalendarClock,
-        path: "/meetings-events/events",
-        permission: PERMISSIONS.MEETINGS_VIEW,
-      },
-      {
-        label: "Events Booking",
-        icon: CalendarClock,
-        path: "/meetings-events/booking",
-        permission: PERMISSIONS.MEETINGS_VIEW,
-      },
-    ],
-  },
-]
+// export const eventsItems: SidebarItem[] = [
+//   {
+//     label: "Meetings & Events",
+//     icon: CalendarClock,
+//     permission: PERMISSIONS.MEETINGS_VIEW,
+//     children: [
+//       {
+//         label: "Meetings & Events",
+//         icon: CalendarClock,
+//         path: "/meetings-events",
+//         permission: PERMISSIONS.MEETINGS_VIEW,
+//       },
+//       {
+//         label: "Events",
+//         icon: CalendarClock,
+//         path: "/meetings-events/events",
+//         permission: PERMISSIONS.MEETINGS_VIEW,
+//       },
+//       {
+//         label: "Events Booking",
+//         icon: CalendarClock,
+//         path: "/meetings-events/booking",
+//         permission: PERMISSIONS.MEETINGS_VIEW,
+//       },
+//     ],
+//   },
+// ]
 
 // Other items
 export const otherItems: SidebarItem[] = [
-  {
-    label: "Popular Destinations",
-    icon: MapPin,
-    path: "/popular-destinations",
-    permission: PERMISSIONS.DASHBOARD_VIEW,
-  },
-  {
-    label: "User Ratings",
-    icon: Star,
-    path: "/user-ratings",
-    permission: PERMISSIONS.USERS_RATING_VIEW,
-  },
+  // {
+  //   label: "Popular Destinations",
+  //   icon: MapPin,
+  //   path: "/popular-destinations",
+  //   permission: PERMISSIONS.DASHBOARD_VIEW,
+  // },
+  // {
+  //   label: "User Ratings",
+  //   icon: Star,
+  //   path: "/user-ratings",
+  //   permission: PERMISSIONS.USERS_RATING_VIEW,
+  // },
   {
     label: "Help Center",
     icon: HelpCircle,
     path: "/help-center",
     permission: PERMISSIONS.DASHBOARD_VIEW,
   },
-  {
-    label: "Extras",
-    icon: Package,
-    path: "/extras",
-    permission: PERMISSIONS.EXTRAS_VIEW,
-  },
-  {
-    label: "Policies",
-    icon: FileText,
-    path: "/policies",
-    permission: PERMISSIONS.POLICIES_VIEW,
-  },
-  {
-    label: "Staff Leave",
-    icon: Clock,
-    path: "/staff-leave",
-    permission: PERMISSIONS.STAFF_LEAVE_VIEW,
-  },
+  // {
+  //   label: "Extras",
+  //   icon: Package,
+  //   path: "/extras",
+  //   permission: PERMISSIONS.EXTRAS_VIEW,
+  // },
+  // {
+  //   label: "Policies",
+  //   icon: FileText,
+  //   path: "/policies",
+  //   permission: PERMISSIONS.POLICIES_VIEW,
+  // },
+  // {
+  //   label: "Staff Leave",
+  //   icon: Clock,
+  //   path: "/staff-leave",
+  //   permission: PERMISSIONS.STAFF_LEAVE_VIEW,
+  // },
   {
     label: "User & Role",
     icon: UserCog,

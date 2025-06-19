@@ -305,6 +305,24 @@ export default function BookingDetailsPage({ params }) {
                   </div>
                 </div>
 
+                <div className="flex items-center">
+                  <div className="w-32 text-gray-500">Status</div>
+                  <div className="w-4 text-gray-500">:</div>
+                  <div className="flex-1 text-gray-700">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      booking.status === 'confirmed' 
+                        ? 'bg-green-100 text-green-800' 
+                        : booking.status === 'completed'
+                        ? 'bg-blue-100 text-blue-800'
+                        : booking.status === 'canceled'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {booking.status || 'pending'}
+                    </span>
+                  </div>
+                </div>
+
                 {booking.specialRequest && (
                   <div className="flex items-start">
                     <div className="w-32 text-gray-500">Special Request</div>
@@ -335,6 +353,7 @@ export default function BookingDetailsPage({ params }) {
                   <div>Phone: {booking.phone}</div>
                   <div>Email: {booking.email}</div>
                   <div>Payment Status: {booking.paymentStatus}</div>
+                  <div>Status: {booking.status || 'pending'}</div>
                   <div>Total Price: ₹{booking.totalPrice?.toLocaleString() || 0}</div>
                 </div>
               </div>
