@@ -62,13 +62,29 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
     return null
   }
 
-  // Filter items based on user permissions
+  // Filter items based on user permissions, but show all for admin (case-insensitive)
+  const isAdmin = user.roleId?.toLowerCase() === "admin" || user.name === "Admin"
   const filterItemsByPermission = (items: SidebarItem[]) => {
-    return items.filter((item) => hasPermission(item.permission))
+    return isAdmin ? items : items.filter((item) => hasPermission(item.permission))
   }
 
   const filteredMainNavItems = filterItemsByPermission(mainNavItems)
-  const filteredHotelManagementItems = filterItemsByPermission(hotelManagementItems)
+
+  // Helper to filter hotel management items for non-admins: show parent if user has any child permission
+  const filterHotelManagementItems = (items: SidebarItem[]) => {
+    if (isAdmin) return items;
+    return items
+      .map((item) => {
+        const allowedChildren = item.children?.filter((child) => hasPermission(child.permission)) || [];
+        if (hasPermission(item.permission) || allowedChildren.length > 0) {
+          return { ...item, children: allowedChildren };
+        }
+        return null;
+      })
+      .filter(Boolean) as SidebarItem[];
+  };
+
+  const filteredHotelManagementItems = filterHotelManagementItems(hotelManagementItems)
   // const filteredEventsItems = filterItemsByPermission(eventsItems)
   const filteredOtherItems = filterItemsByPermission(otherItems)
 
@@ -144,7 +160,7 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
                 label={item.label}
                 active={activeItem === item.label}
                 activeItem={activeItem}
-                children={item.children?.filter((child) => hasPermission(child.permission))}
+                children={isAdmin ? item.children : item.children?.filter((child) => hasPermission(child.permission))}
                 collapsed={collapsed}
               />
             ))}

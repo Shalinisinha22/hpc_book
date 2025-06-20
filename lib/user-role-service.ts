@@ -1,10 +1,18 @@
 import { v4 as uuidv4 } from "uuid"
 import { MOCK_USERS, type User, generateUserId } from "./user-model"
-import { PREDEFINED_ROLES, type Role } from "./role-permissions"
+import axios from "axios"
+import { API_ROUTES } from "@/config/api"
 
-// In-memory storage for users and roles
+// In-memory storage for users
 let users = [...MOCK_USERS]
-let roles = [...PREDEFINED_ROLES]
+
+// Add Role type for API usage
+export interface Role {
+  _id: string;
+  role: string;
+  description: string;
+  permissions: string[];
+}
 
 export const UserService = {
   // User operations
@@ -20,11 +28,6 @@ export const UserService = {
     // Check if email already exists
     if (users.some((user) => user.email === userData.email)) {
       throw new Error("Email already in use")
-    }
-
-    // Check if role exists
-    if (!roles.some((role) => role.id === userData.roleId)) {
-      throw new Error("Invalid role")
     }
 
     const newUser: User = {
@@ -50,11 +53,6 @@ export const UserService = {
       }
     }
 
-    // Check if role is being updated and exists
-    if (userData.roleId && !roles.some((role) => role.id === userData.roleId)) {
-      throw new Error("Invalid role")
-    }
-
     const updatedUser = {
       ...users[userIndex],
       ...userData,
@@ -74,91 +72,50 @@ export const UserService = {
     users.splice(userIndex, 1)
   },
 
-  // Role operations
+  // Role operations (use backend API)
   getRoles: async (): Promise<Role[]> => {
-    return [...roles]
+    const res = await axios.get(API_ROUTES.roles, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+    })
+    return res.data.roles || res.data // adjust if API returns { roles: [...] }
   },
 
   getRoleById: async (id: string): Promise<Role | undefined> => {
-    return roles.find((role) => role.id === id)
+    const res = await axios.get(`${API_ROUTES.roles}/${id}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+    })
+    return res.data.role || res.data
   },
 
-  getRoleWithPermissions: async (roleId: string): Promise<Role | undefined> => {
-    return roles.find((role) => role.id === roleId)
+  createRole: async (roleData: { role: string; description?: string; permissions: string[] }): Promise<Role> => {
+    const res = await axios.post(`${API_ROUTES.roles}`, roleData, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+    })
+    return res.data.role || res.data
   },
 
-  createRole: async (roleData: Omit<Role, "id">): Promise<Role> => {
-    const newRole: Role = {
-      id: uuidv4(),
-      ...roleData,
-    }
-
-    roles.push(newRole)
-    return newRole
-  },
-
-  updateRole: async (id: string, roleData: Partial<Role>): Promise<Role> => {
-    const roleIndex = roles.findIndex((role) => role.id === id)
-
-    if (roleIndex === -1) {
-      throw new Error("Role not found")
-    }
-
-    // Check if this is a predefined role (1-5)
-    if (["1", "2", "3", "4", "5"].includes(id)) {
-      throw new Error("Cannot modify predefined roles")
-    }
-
-    const updatedRole = {
-      ...roles[roleIndex],
-      ...roleData,
-    }
-
-    roles[roleIndex] = updatedRole
-    return updatedRole
+  updateRole: async (id: string, roleData: { role: string; description?: string; permissions: string[] }): Promise<Role> => {
+    const res = await axios.put(`${API_ROUTES.roles}/${id}`, roleData, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+    })
+    return res.data.role || res.data
   },
 
   deleteRole: async (id: string): Promise<void> => {
-    const roleIndex = roles.findIndex((role) => role.id === id)
-
-    if (roleIndex === -1) {
-      throw new Error("Role not found")
-    }
-
-    // Check if this is a predefined role (1-5)
-    if (["1", "2", "3", "4", "5"].includes(id)) {
-      throw new Error("Cannot delete predefined roles")
-    }
-
-    // Check if any users are using this role
-    if (users.some((user) => user.roleId === id)) {
-      throw new Error("Cannot delete role that is assigned to users")
-    }
-
-    roles.splice(roleIndex, 1)
+    await axios.delete(`${API_ROUTES.roles}/${id}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+    })
   },
 
   // Reset data (for testing)
   resetData: () => {
     users = [...MOCK_USERS]
-    roles = [...PREDEFINED_ROLES]
   },
 }
 
 export const RoleService = {
-  getRoles: async (): Promise<Role[]> => {
-    return UserService.getRoles()
-  },
-
-  createRole: async (roleData: Omit<Role, "id">): Promise<Role> => {
-    return UserService.createRole(roleData)
-  },
-
-  updateRole: async (id: string, roleData: Partial<Role>): Promise<Role> => {
-    return UserService.updateRole(id, roleData)
-  },
-
-  deleteRole: async (id: string): Promise<void> => {
-    return UserService.deleteRole(id)
-  },
+  getRoles: UserService.getRoles,
+  createRole: UserService.createRole,
+  updateRole: UserService.updateRole,
+  deleteRole: UserService.deleteRole,
 }

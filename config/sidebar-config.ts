@@ -70,43 +70,43 @@ export const hotelManagementItems: SidebarItem[] = [
   {
     label: "Rooms & Suites",
     icon: Home,
-    permission: PERMISSIONS.DASHBOARD_VIEW,
+    permission: PERMISSIONS.ROOM_VIEW,
     children: [
       {
         label: "Rooms & Suites",
         icon: Home,
         path: "/rooms-and-suites",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
+        permission: PERMISSIONS.ROOM_VIEW,
       },
       {
         label: "Unavailable",
         icon: Home,
         path: "/rooms-and-suites/unavailable",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
+        permission: PERMISSIONS.ROOM_VIEW,
       },
       {
         label: "Packages",
         icon: Home,
         path: "/rooms-and-suites/packages",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
+        permission: PERMISSIONS.ROOM_VIEW,
       },
       {
         label: "Tariffs",
         icon: Home,
         path: "/rooms-and-suites/tariffs",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
+        permission: PERMISSIONS.ROOM_VIEW,
       },
       {
         label: "Special Tariffs",
         icon: Home,
         path: "/rooms-and-suites/special-tariffs",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
+        permission: PERMISSIONS.ROOM_VIEW,
       },
       {
         label: "Gallery",
         icon: Home,
         path: "/rooms-and-suites/gallery",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
+        permission: PERMISSIONS.ROOM_VIEW,
       },
     ],
   },
@@ -157,53 +157,53 @@ export const hotelManagementItems: SidebarItem[] = [
   {
     label: "Dining",
     icon: Utensils,
-    permission: PERMISSIONS.DASHBOARD_VIEW,
+    permission: PERMISSIONS.DINING_VIEW,
     children: [
       {
         label: "Dinings",
         icon: Utensils,
         path: "/dining/dinings",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
+        permission: PERMISSIONS.DINING_VIEW,
       },
-      {
-        label: "Food Festivals",
-        icon: Utensils,
-        path: "/dining/food-festivals",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
-      },
+      // {
+      //   label: "Food Festivals",
+      //   icon: Utensils,
+      //   path: "/dining/food-festivals",
+      //   permission: PERMISSIONS.DASHBOARD_VIEW,
+      // },
       {
         label: "Gallery",
         icon: Utensils,
         path: "/dining/gallery",
-        permission: PERMISSIONS.DASHBOARD_VIEW,
+        permission: PERMISSIONS.DINING_VIEW,
       },
     ],
   },
-  {
-    label: "Wellness",
-    icon: Sparkles,
-    permission: PERMISSIONS.WELLNESS_VIEW,
-    children: [
-      {
-        label: "Wellness",
-        icon: Sparkles,
-        path: "/wellness",
-        permission: PERMISSIONS.WELLNESS_VIEW,
-      },
-      {
-        label: "Wellness Logos",
-        icon: Sparkles,
-        path: "/wellness/logos",
-        permission: PERMISSIONS.WELLNESS_VIEW,
-      },
-      {
-        label: "Spa Services",
-        icon: Sparkles,
-        path: "/wellness/spa-services",
-        permission: PERMISSIONS.WELLNESS_VIEW,
-      },
-    ],
-  },
+  // {
+  //   label: "Wellness",
+  //   icon: Sparkles,
+  //   permission: PERMISSIONS.WELLNESS_VIEW,
+  //   children: [
+  //     {
+  //       label: "Wellness",
+  //       icon: Sparkles,
+  //       path: "/wellness",
+  //       permission: PERMISSIONS.WELLNESS_VIEW,
+  //     },
+  //     {
+  //       label: "Wellness Logos",
+  //       icon: Sparkles,
+  //       path: "/wellness/logos",
+  //       permission: PERMISSIONS.WELLNESS_VIEW,
+  //     },
+  //     {
+  //       label: "Spa Services",
+  //       icon: Sparkles,
+  //       path: "/wellness/spa-services",
+  //       permission: PERMISSIONS.WELLNESS_VIEW,
+  //     },
+  //   ],
+  // },
 ]
 
 // Events items
@@ -286,3 +286,21 @@ export const otherItems: SidebarItem[] = [
     permission: PERMISSIONS.DASHBOARD_VIEW,
   },
 ]
+
+// utils/get-all-permissions.ts
+import { mainNavItems, hotelManagementItems, otherItems } from "@/config/sidebar-config"
+import type { Permission } from "@/lib/permissions"
+
+export function getAllSidebarPermissions(): Permission[] {
+  const flatten = (items: any[]): Permission[] =>
+    items.flatMap(item =>
+      item.children ? [item.permission, ...flatten(item.children)] : [item.permission]
+    )
+  return Array.from(
+    new Set([
+      ...flatten(mainNavItems),
+      ...flatten(hotelManagementItems),
+      ...flatten(otherItems),
+    ])
+  )
+}

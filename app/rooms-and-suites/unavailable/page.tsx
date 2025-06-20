@@ -12,12 +12,28 @@ import { format, set } from "date-fns"
 import { Pagination } from "@/components/pagination"
 import axios from "axios"   
 import { API_ROUTES } from "@/config/api"
+import { headers } from "next/headers"
+import { toast } from "@/components/ui/use-toast"
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog"
 
+// Update UnavailableRoom type to match API
 interface UnavailableRoom {
-  id: number
-  dateFrom: string
-  dateTo: string
-  roomType: string
+  _id: string;
+  roomId: { _id: string; room_title: string } | null;
+  fromDate: string;
+  toDate: string;
+  createdAt: string;
+  __v: number;
 }
 
 export default function UnavailableRoomsPage() {
@@ -30,6 +46,10 @@ export default function UnavailableRoomsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [roomTypes,setRoomTypes] = useState<string[]>([])
   const [isLoadingRooms, setIsLoadingRooms] = useState<boolean>(false)
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [roomToDelete, setRoomToDelete] = useState<UnavailableRoom | null>(null)
 
     // Fetch available rooms count
     useEffect(() => {
@@ -63,6 +83,27 @@ export default function UnavailableRoomsPage() {
   
       fetchAvailableRooms()
     }, [])
+
+    // Fetch unavailable rooms from new API
+    useEffect(() => {
+      const fetchUnavailableRooms = async () => {
+        try {
+          const response = await axios.get(API_ROUTES.unavailabilities, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+            },
+          })
+          if (response.data && response.data.success) {
+            setUnavailableRooms(response.data.data)
+          }
+        } catch (error) {
+          console.error('Error fetching unavailable rooms:', error)
+        }
+      }
+      fetchUnavailableRooms()
+    }, [])
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
@@ -80,58 +121,109 @@ export default function UnavailableRoomsPage() {
     setCurrentPage(page)
   }
 
+  // Helper to refresh unavailable rooms
+  const fetchUnavailableRooms = async () => {
+    try {
+      const response = await axios.get(API_ROUTES.unavailabilities, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+        },
+      })
+      if (response.data && response.data.success) {
+        setUnavailableRooms(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching unavailable rooms:', error)
+    }
+  }
+
+  // Combine all rooms for dropdown (unique by _id)
+  const allRooms = [
+    ...availableRooms,
+    ...unavailableRooms
+      .filter((ur) => ur.roomId && !availableRooms.some((ar) => ar._id === ur.roomId!._id))
+      .map((ur) => ur.roomId!)
+  ].filter(Boolean)
+
+  // Add this function to call the unavailable API
+  const setRoomUnavailable = async (roomId: string, fromDate: string, toDate: string) => {
 
 
-  const handleSave = () => {
+    try {
+      await axios.post(
+        `${API_ROUTES.rooms}/status/unavailable`,
+        {
+          roomId,
+          fromDate: new Date(fromDate).toISOString(),
+          toDate: new Date(toDate).toISOString(),
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            "Authorization": `Bearer ${localStorage.getItem("auth-token")}`
+          },
+        }
+      )
+      toast({ title: "Room set as unavailable successfully!", variant: "default" })
+    } catch (error) {
+      console.error('Failed to set room unavailable:', error)
+      toast({ title: "Failed to set room unavailable.", variant: "destructive" })
+    }
+  }
+
+  const handleSave = async () => {
     if (!selectedRoom || !dateFrom || !dateTo) {
-      alert("Please fill in all fields")
+      toast({ title: "Please fill in all fields", variant: "destructive" })
       return
     }
 
-    if (new Date(dateFrom) > new Date(dateTo)) {
-      alert("Start date cannot be after end date")
+    const today = new Date()
+    today.setHours(0,0,0,0)
+    const from = new Date(dateFrom)
+    const to = new Date(dateTo)
+    if (from < today) {
+      toast({ title: "'Date From' must be today or later.", variant: "destructive" })
+      return
+    }
+    if (to < from) {
+      toast({ title: "'Date To' cannot be before 'Date From'.", variant: "destructive" })
+      return
+    }
+
+    // Find the selected room's ID
+    const selectedRoomObj = allRooms.find((room) => room.room_title === selectedRoom)
+    if (!selectedRoomObj) {
+      toast({ title: "Selected room not found!", variant: "destructive" })
       return
     }
 
     if (isEditing && editingId) {
-      // Update existing room
-       try{
-         const response= await axios.put(`${API_ROUTES.rooms}/${editingId}`, {
-          dateFrom, 
-
-          dateTo,
-          roomType: selectedRoom
-       }
-       catch (error) {
-        console.error("Error updating room:", error)
-        alert("Failed to update room. Please try again.")
-        }
-      setUnavailableRooms(
-        unavailableRooms.map((room) =>
-          room.id === editingId
-            ? {
-                ...room,
-                dateFrom,
-                dateTo,
-                roomType: selectedRoom,
-              }
-            : room,
-        ),
-      )
-      setIsEditing(false)
-      setEditingId(null)
+      // Update existing room (API call for update)
+      try {
+        await axios.put(
+          `${API_ROUTES.unavailabilities}/${editingId}`,
+          {
+            roomId: selectedRoomObj._id,
+            fromDate: new Date(dateFrom).toISOString(),
+            toDate: new Date(dateTo).toISOString(),
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+            },
+          }
+        )
+        await fetchUnavailableRooms()
+        toast({ title: "Unavailable room updated successfully!", variant: "default" })
+      } catch (error) {
+        toast({ title: "Failed to update unavailable room.", variant: "destructive" })
+      }
     } else {
-      // Add new room
-      const newId = unavailableRooms.length > 0 ? Math.max(...unavailableRooms.map((room) => room.id)) + 1 : 1
-      setUnavailableRooms([
-        ...unavailableRooms,
-        {
-          id: newId,
-          dateFrom,
-          dateTo,
-          roomType: selectedRoom,
-        },
-      ])
+      // Add new room (API call for add should be implemented here)
+      await setRoomUnavailable(selectedRoomObj._id, dateFrom, dateTo)
+      await fetchUnavailableRooms()
     }
 
     // Reset form
@@ -140,22 +232,43 @@ export default function UnavailableRoomsPage() {
     setDateTo("")
   }
 
-  const handleEdit = (room: UnavailableRoom) => {
-    setSelectedRoom(room.roomType)
-    setDateFrom(room.dateFrom)
-    setDateTo(room.dateTo)
+  const handleEdit = (room: any) => {
+    setSelectedRoom(room.roomId? room.roomId.room_title : "")
+    setDateFrom(room.fromDate ? room.fromDate.slice(0,10) : "")
+    setDateTo(room.toDate ? room.toDate.slice(0,10) : "")
     setIsEditing(true)
-    setEditingId(room.id)
+    setEditingId(room._id)
   }
 
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this unavailable room setting?")) {
-      setUnavailableRooms(unavailableRooms.filter((room) => room.id !== id))
+  const openDeleteDialog = (room: UnavailableRoom) => {
+    setRoomToDelete(room)
+    setDeleteDialogOpen(true)
+  }
+  const closeDeleteDialog = () => {
+    setRoomToDelete(null)
+    setDeleteDialogOpen(false)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (roomToDelete) {
+      try {
+        await axios.delete(`${API_ROUTES.unavailabilities}/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+          },
+        })
+        setUnavailableRooms(unavailableRooms.filter((room) => room._id !== id))
+        toast({ title: "Unavailable room deleted successfully!", variant: "default" })
+      } catch (error) {
+        toast({ title: "Failed to delete unavailable room.", variant: "destructive" })
+      }
     }
   }
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "—"
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return "—"
     return format(date, "yyyy-MM-dd")
   }
 
@@ -166,7 +279,7 @@ export default function UnavailableRoomsPage() {
 
       {/* Main Content */}
       <div className="flex-1">
-        <PageHeader />
+        <PageHeader heading="Rooms Unavailable" />
 
         <main className="p-4 md:p-6">
           <div className="bg-gold p-4 md:p-6 rounded-t-lg">
@@ -209,17 +322,17 @@ export default function UnavailableRoomsPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {getCurrentPageData().map((room, index) => (
-                        <tr key={room.id} className="hover:bg-gray-50">
+                        <tr key={room._id} className="hover:bg-gray-50">
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
                             {(currentPage - 1) * itemsPerPage + index + 1}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {formatDate(room.dateFrom)}
+                            {formatDate(room.fromDate)}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {formatDate(room.dateTo)}
+                            {formatDate(room.toDate)}
                           </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{room.roomType}</td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{room.roomId ? room.roomId.room_title : "—"}</td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
                             <div className="flex space-x-2">
                               <Button
@@ -234,7 +347,7 @@ export default function UnavailableRoomsPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-red-500"
-                                onClick={() => handleDelete(room.id)}
+                                onClick={() => openDeleteDialog(room)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -279,9 +392,9 @@ export default function UnavailableRoomsPage() {
                         <SelectValue placeholder="Select Room" />
                       </SelectTrigger>
                       <SelectContent className="max-h-60">
-                        {roomTypes.map((roomType) => (
-                          <SelectItem key={roomType} value={roomType}>
-                            {roomType}
+                        {allRooms.map((room) => (
+                          <SelectItem key={room._id} value={room.room_title}>
+                            {room.room_title}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -296,7 +409,8 @@ export default function UnavailableRoomsPage() {
                       <Input
                         id="date-from"
                         type="date"
-                        value={dateFrom}
+                        value={dateFrom || ""}
+                        min={format(new Date(), "yyyy-MM-dd")}
                         onChange={(e) => setDateFrom(e.target.value)}
                         className="w-full"
                       />
@@ -312,7 +426,8 @@ export default function UnavailableRoomsPage() {
                       <Input
                         id="date-to"
                         type="date"
-                        value={dateTo}
+                        value={dateTo || ""}
+                        min={dateFrom || format(new Date(), "yyyy-MM-dd")}
                         onChange={(e) => setDateTo(e.target.value)}
                         className="w-full"
                       />
@@ -345,6 +460,31 @@ export default function UnavailableRoomsPage() {
           </div>
         </main>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Room Unavailability?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this unavailable room setting?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={closeDeleteDialog}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (roomToDelete) {
+                  await handleDelete(roomToDelete._id)
+                  closeDeleteDialog()
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

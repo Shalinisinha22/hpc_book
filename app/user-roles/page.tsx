@@ -14,19 +14,37 @@ import { UserService } from "@/lib/user-role-service"
 import { PERMISSIONS } from "@/lib/role-permissions"
 import { AlertCircle, Check, Edit, Trash, UserPlus, Plus } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import axios from "axios"
+import { API_ROUTES } from "@/config/api"
+import { getAllSidebarPermissions } from "@/utils/get-all-sidebar-permissions"
+import { dashboardPermissions, hotelManagementPermissions } from "@/utils/sidebar-permission-groups"
+
+// User and Role types
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+interface Role {
+  _id: string;
+  role: string;
+  description: string;
+  permissions: string[];
+}
 
 export default function UserRolesPage() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("users")
   const [isLoading, setIsLoading] = useState(true)
-  const [users, setUsers] = useState([])
-  const [roles, setRoles] = useState([])
+  const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false)
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState(null)
-  const [selectedRole, setSelectedRole] = useState(null)
-  const [itemToDelete, setItemToDelete] = useState(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null)
+  const [itemToDelete, setItemToDelete] = useState<User | Role | null>(null)
   const [deleteType, setDeleteType] = useState("")
 
   // Form states
@@ -38,19 +56,34 @@ export default function UserRolesPage() {
   })
 
   const [roleForm, setRoleForm] = useState({
-    name: "",
+    role: "",
     description: "",
-    permissions: [],
+    permissions: [] as string[],
   })
+
+  // Fetch all users except those with role 'user'
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get(`${API_ROUTES.members}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+        },
+      })
+      // Filter out users with role 'user'
+      setUsers(res.data.users.filter((u: User) => u.role !== 'user'))
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to load users', variant: 'destructive' })
+    }
+  }
 
   // Load data
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true)
       try {
-        const [usersData, rolesData] = await Promise.all([UserService.getUsers(), UserService.getRoles()])
-        setUsers(usersData)
+        const [rolesData] = await Promise.all([UserService.getRoles()])
         setRoles(rolesData)
+        await fetchUsers()
       } catch (error) {
         console.error("Error loading data:", error)
         toast({
@@ -67,7 +100,7 @@ export default function UserRolesPage() {
   }, [toast])
 
   // Handle user form submission
-  const handleUserSubmit = async (e) => {
+  const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
@@ -80,14 +113,24 @@ export default function UserRolesPage() {
           delete dataToUpdate.password
         }
 
-        await UserService.updateUser(selectedUser.id, dataToUpdate)
+        await axios.put(`${API_ROUTES.members}/${selectedUser._id}`, dataToUpdate, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+        })
         toast({
           title: "Success",
           description: "User updated successfully",
         })
       } else {
         // Create new user
-        await UserService.createUser(userForm)
+        await axios.post(API_ROUTES.register, {
+          name: userForm.name,
+          email: userForm.email,
+          password: userForm.password,
+          role: userForm.roleId, // send role name
+        },
+      {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+      })
         toast({
           title: "Success",
           description: "User created successfully",
@@ -95,17 +138,15 @@ export default function UserRolesPage() {
       }
 
       // Refresh users list
-      const updatedUsers = await UserService.getUsers()
-      setUsers(updatedUsers)
+      await fetchUsers()
 
       // Close dialog and reset form
       setIsUserDialogOpen(false)
       resetUserForm()
-    } catch (error) {
-      console.error("Error saving user:", error)
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to save user. Please try again.",
+        description: error?.message || "Failed to save user. Please try again.",
         variant: "destructive",
       })
     }
@@ -117,15 +158,21 @@ export default function UserRolesPage() {
 
     try {
       if (selectedRole) {
-        // Update existing role
-        await UserService.updateRole(selectedRole.id, roleForm)
+        // Update existing role (keep as is or update as needed)
+        await UserService.updateRole(selectedRole._id, roleForm)
         toast({
           title: "Success",
           description: "Role updated successfully",
         })
       } else {
-        // Create new role
-        await UserService.createRole(roleForm)
+        // Create new role using /api/roles POST
+        await axios.post(API_ROUTES.roles, {
+          role: roleForm.role,
+          description: roleForm.description,
+          permissions: roleForm.permissions,
+        }, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+        })
         toast({
           title: "Success",
           description: "Role created successfully",
@@ -139,13 +186,16 @@ export default function UserRolesPage() {
       // Close dialog and reset form
       setIsRoleDialogOpen(false)
       resetRoleForm()
-    } catch (error) {
-      console.error("Error saving role:", error)
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to save role. Please try again.";
       toast({
         title: "Error",
-        description: error.message || "Failed to save role. Please try again.",
+        description: message,
         variant: "destructive",
-      })
+      });
     }
   }
 
@@ -153,15 +203,15 @@ export default function UserRolesPage() {
   const handleDelete = async () => {
     try {
       if (deleteType === "user") {
-        await UserService.deleteUser(itemToDelete.id)
-        const updatedUsers = await UserService.getUsers()
-        setUsers(updatedUsers)
+        await axios.delete(`${API_ROUTES.members}/${itemToDelete?._id}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` },
+        })
         toast({
           title: "Success",
           description: "User deleted successfully",
         })
       } else if (deleteType === "role") {
-        await UserService.deleteRole(itemToDelete.id)
+        await UserService.deleteRole(itemToDelete._id)
         const updatedRoles = await UserService.getRoles()
         setRoles(updatedRoles)
         toast({
@@ -169,11 +219,10 @@ export default function UserRolesPage() {
           description: "Role deleted successfully",
         })
       }
-    } catch (error) {
-      console.error("Error deleting item:", error)
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete. Please try again.",
+        description: error?.message || "Failed to delete. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -184,22 +233,22 @@ export default function UserRolesPage() {
   }
 
   // Edit user
-  const editUser = (user) => {
+  const editUser = (user: User) => {
     setSelectedUser(user)
     setUserForm({
       name: user.name,
       email: user.email,
       password: "", // Don't show password, leave empty to keep existing
-      roleId: user.roleId,
+      roleId: user.role, // use role string
     })
     setIsUserDialogOpen(true)
   }
 
   // Edit role
-  const editRole = (role) => {
+  const editRole = (role: Role) => {
     setSelectedRole(role)
     setRoleForm({
-      name: role.name,
+      role: role.role, // use backend field
       description: role.description,
       permissions: [...role.permissions],
     })
@@ -207,14 +256,14 @@ export default function UserRolesPage() {
   }
 
   // Delete user
-  const confirmDeleteUser = (user) => {
+  const confirmDeleteUser = (user: User) => {
     setItemToDelete(user)
     setDeleteType("user")
     setIsDeleteDialogOpen(true)
   }
 
   // Delete role
-  const confirmDeleteRole = (role) => {
+  const confirmDeleteRole = (role: Role) => {
     setItemToDelete(role)
     setDeleteType("role")
     setIsDeleteDialogOpen(true)
@@ -235,14 +284,14 @@ export default function UserRolesPage() {
   const resetRoleForm = () => {
     setSelectedRole(null)
     setRoleForm({
-      name: "",
+      role: "",
       description: "",
-      permissions: [],
+      permissions: [] as string[],
     })
   }
 
   // Toggle permission in role form
-  const togglePermission = (permission) => {
+  const togglePermission = (permission: string) => {
     setRoleForm((prev) => {
       const permissions = [...prev.permissions]
       if (permissions.includes(permission)) {
@@ -253,39 +302,23 @@ export default function UserRolesPage() {
     })
   }
 
-  // Group permissions by category
-  const groupedPermissions = {
-    Main: [
-      PERMISSIONS.DASHBOARD_VIEW,
-      PERMISSIONS.BOOKINGS_VIEW,
-      PERMISSIONS.MEMBERS_VIEW,
-      PERMISSIONS.CANCEL_BOOKINGS_VIEW,
-    ],
-    Events: [PERMISSIONS.EVENTS_VIEW, PERMISSIONS.MEETINGS_VIEW],
-    Facilities: [PERMISSIONS.HALLS_VIEW, PERMISSIONS.WELLNESS_VIEW],
-    Management: [
-      PERMISSIONS.POLICIES_VIEW,
-      PERMISSIONS.DISCOUNTS_VIEW,
-      PERMISSIONS.USERS_RATING_VIEW,
-      PERMISSIONS.EXTRAS_VIEW,
-      PERMISSIONS.USER_ROLE_MANAGE,
-    ],
-  }
+
 
   // Get role name by ID
-  const getRoleName = (roleId) => {
-    const role = roles.find((r) => r.id === roleId)
-    return role ? role.name : "Unknown"
+  const getRoleName = (roleName: string) => {
+    const role = roles.find((r) => r.role === roleName)
+    return role ? role.role : "Unknown"
   }
 
   // Check if role is predefined
-  const isPredefinedRole = (roleId) => {
+  const isPredefinedRole = (roleId: string) => {
+    // Adjust this logic as needed for your backend
     return ["1", "2", "3", "4", "5"].includes(roleId)
   }
 
   return (
     <div className="p-6 space-y-6">
-      <PageHeader heading="User & Role Management" subheading="Manage users and roles with their permissions" />
+      <PageHeader heading="User & Role Management" />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -357,8 +390,8 @@ export default function UserRolesPage() {
                     >
                       <option value="">-- Select Role --</option>
                       {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
+                        <option key={role._id} value={role.role}>
+                          {role.role}
                         </option>
                       ))}
                     </select>
@@ -414,12 +447,12 @@ export default function UserRolesPage() {
                     </TableRow>
                   ) : (
                     users.map((user) => (
-                      <TableRow key={user.id}>
+                      <TableRow key={user._id}>
                         <TableCell className="font-medium">{user.name}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gold/10 text-gold">
-                            {getRoleName(user.roleId)}
+                            {getRoleName(user.role)}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
@@ -436,11 +469,13 @@ export default function UserRolesPage() {
                         </TableCell>
                       </TableRow>
                     ))
-                  )}
+                  )
+                  }
                 </TableBody>
               </Table>
             </div>
-          )}
+          )
+          }
         </TabsContent>
 
         {/* Roles Tab */}
@@ -465,13 +500,13 @@ export default function UserRolesPage() {
                 </DialogHeader>
                 <form onSubmit={handleRoleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Role Name</Label>
+                    <Label htmlFor="role">Role Name</Label>
                     <Input
-                      id="name"
-                      value={roleForm.name}
-                      onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
+                      id="role"
+                      value={roleForm.role}
+                      onChange={(e) => setRoleForm({ ...roleForm, role: e.target.value })}
                       required
-                      disabled={selectedRole && isPredefinedRole(selectedRole.id)}
+                      disabled={selectedRole && isPredefinedRole(selectedRole._id)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -480,43 +515,46 @@ export default function UserRolesPage() {
                       id="description"
                       value={roleForm.description}
                       onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
-                      required
-                      disabled={selectedRole && isPredefinedRole(selectedRole.id)}
+                 
+                      disabled={selectedRole && isPredefinedRole(selectedRole._id)}
                     />
                   </div>
 
-                  <div className="space-y-4">
-                    <Label>Permissions</Label>
-
-                    {selectedRole && isPredefinedRole(selectedRole.id) ? (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start">
-                        <AlertCircle className="h-5 w-5 text-amber-500 mr-2 mt-0.5" />
-                        <p className="text-sm text-amber-700">
-                          This is a predefined role. Permissions cannot be modified.
-                        </p>
-                      </div>
-                    ) : (
-                      Object.entries(groupedPermissions).map(([category, permissions]) => (
-                        <div key={category} className="space-y-2">
-                          <h3 className="text-sm font-medium text-gray-700">{category}</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {permissions.map((permission) => (
-                              <div key={permission} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={permission}
-                                  checked={roleForm.permissions.includes(permission)}
-                                  onCheckedChange={() => togglePermission(permission)}
-                                  disabled={selectedRole && isPredefinedRole(selectedRole.id)}
-                                />
-                                <Label htmlFor={permission} className="text-sm cursor-pointer">
-                                  {permission.replace(".", " ").replace("_", " ")}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
+                  {/* Permissions Section - Improved UI */}
+                  <div className="rounded-lg border bg-white shadow-sm p-6 mt-4">
+                    <h3 className="text-lg font-semibold mb-4">Assign Page Access</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div>
+                        <h4 className="font-medium mb-2 text-gray-700 border-b pb-1">Dashboard Permissions</h4>
+                        <div className="space-y-2">
+                          {dashboardPermissions.map(({ label, permission }) => (
+                            <div key={permission} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={permission}
+                                checked={roleForm.permissions.includes(permission)}
+                                onCheckedChange={() => togglePermission(permission)}
+                              />
+                              <Label htmlFor={permission}>{label}</Label>
+                            </div>
+                          ))}
                         </div>
-                      ))
-                    )}
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-2 text-gray-700 border-b pb-1">Hotel Management Permissions</h4>
+                        <div className="space-y-2">
+                          {hotelManagementPermissions.map(({ label, permission }) => (
+                            <div key={permission} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={permission}
+                                checked={roleForm.permissions.includes(permission)}
+                                onCheckedChange={() => togglePermission(permission)}
+                              />
+                              <Label htmlFor={permission}>{label}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex justify-end space-x-2 pt-4">
@@ -530,7 +568,7 @@ export default function UserRolesPage() {
                     >
                       Cancel
                     </Button>
-                    {!(selectedRole && isPredefinedRole(selectedRole.id)) && (
+                    {!(selectedRole && isPredefinedRole(selectedRole._id)) && (
                       <Button type="submit">{selectedRole ? "Update Role" : "Create Role"}</Button>
                     )}
                   </div>
@@ -572,10 +610,10 @@ export default function UserRolesPage() {
                     </TableRow>
                   ) : (
                     roles.map((role) => (
-                      <TableRow key={role.id}>
+                      <TableRow key={role._id}>
                         <TableCell className="font-medium">
-                          {role.name}
-                          {isPredefinedRole(role.id) && (
+                          {role.role}
+                          {isPredefinedRole(role._id) && (
                             <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                               Default
                             </span>
@@ -592,7 +630,7 @@ export default function UserRolesPage() {
                         <TableCell className="text-right">
                           <div className="flex justify-end space-x-2">
                             <Button variant="ghost" size="sm" onClick={() => editRole(role)}>
-                              {isPredefinedRole(role.id) ? (
+                              {isPredefinedRole(role._id) ? (
                                 <>
                                   <Check className="h-4 w-4 mr-1" />
                                   View
@@ -602,9 +640,10 @@ export default function UserRolesPage() {
                                   <Edit className="h-4 w-4" />
                                   <span className="sr-only">Edit</span>
                                 </>
-                              )}
+                              )
+                              }
                             </Button>
-                            {!isPredefinedRole(role.id) && (
+                            {!isPredefinedRole(role._id) && (
                               <Button variant="ghost" size="sm" onClick={() => confirmDeleteRole(role)}>
                                 <Trash className="h-4 w-4" />
                                 <span className="sr-only">Delete</span>
@@ -614,10 +653,12 @@ export default function UserRolesPage() {
                         </TableCell>
                       </TableRow>
                     ))
-                  )}
+                  )
+                  }
                 </TableBody>
               </Table>
             </div>
+
           )}
         </TabsContent>
       </Tabs>

@@ -13,6 +13,8 @@ export const PERMISSIONS = {
   DISCOUNTS_VIEW: "discounts.view",
   USERS_RATING_VIEW: "users_rating.view",
   EXTRAS_VIEW: "extras.view",
+  DINING_VIEW: "dining.view",
+  ROOM_VIEW: "room.view",
 
   // Staff management
   STAFF_LEAVE_VIEW: "staff_leave.view",
@@ -46,6 +48,7 @@ export const PREDEFINED_ROLES: Role[] = [
       PERMISSIONS.DASHBOARD_VIEW,
       PERMISSIONS.BOOKINGS_VIEW,
       PERMISSIONS.MEMBERS_VIEW,
+      PERMISSIONS.ROOM_VIEW,
       PERMISSIONS.CANCEL_BOOKINGS_VIEW,
       PERMISSIONS.EVENTS_VIEW,
       PERMISSIONS.WELLNESS_VIEW,
@@ -58,6 +61,7 @@ export const PREDEFINED_ROLES: Role[] = [
       PERMISSIONS.STAFF_LEAVE_VIEW,
       PERMISSIONS.STAFF_LEAVE_MANAGE,
       PERMISSIONS.USER_ROLE_MANAGE,
+      PERMISSIONS.DINING_VIEW, 
     ],
   },
   {
@@ -69,6 +73,7 @@ export const PREDEFINED_ROLES: Role[] = [
       PERMISSIONS.BOOKINGS_VIEW,
       PERMISSIONS.MEMBERS_VIEW,
       PERMISSIONS.CANCEL_BOOKINGS_VIEW,
+      PERMISSIONS.DINING_VIEW, // <-- New permission added to Front Office role
     ],
   },
   {

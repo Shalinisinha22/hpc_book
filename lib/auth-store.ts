@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import { PREDEFINED_ROLES, type Permission } from "@/lib/permissions"
+import { type Permission } from "@/lib/permissions"
 import { isTokenExpired, parseJwt } from './auth-utils'
 import { API_ROUTES } from "@/config/api"
 
@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState>()(
           })
 
           const data = await response.json()
-          
+              console.log(data)
           if (!data.success) {
             return {
               success: false,
@@ -49,16 +49,20 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          const { name, email: userEmail, role, token } = data.result
+          const { name, email: userEmail, role, token,permission } = data.result
+      
 
-          const userRole = PREDEFINED_ROLES.find((r) => r.name.toLowerCase() === role.toLowerCase())
+          // const userRole = PREDEFINED_ROLES.find((r) => r.name.toLowerCase() === role.toLowerCase())
           
-          if (!userRole) {
-            return {
-              success: false,
-              message: "Invalid role configuration",
-            }
-          }
+          // if (!userRole) {
+          //   return {
+          //     success: false,
+          //     message: "Invalid role configuration",
+          //   }
+          // }
+
+          // Use permissions from API response (roleData.permissions)
+          const permissions = data.result.roleData?.permissions || [];
 
           const authState = {
             isAuthenticated: true,
@@ -67,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
               email: userEmail,
               name,
               roleId: role,
-              permissions: userRole.permissions,
+              permissions,
               token
             },
           }

@@ -26,160 +26,76 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import axios from "axios"
+import { API_ROUTES } from "@/config/api"
 
-// Sample data matching the screenshot
-const initialBookingRequests = [
-  {
-    id: 1,
-    requestedOn: "12-04-2023",
-    venueName: "Shahmai",
-    prefDate: "2023-05-12",
-    noOfGuests: 100,
-    fullName: "Jayant Gautam",
-    mobile: "9818984683",
-    email: "jgautam8@gmail.com",
-    timeOfEvent: "1500 to 2345 hrs",
-    purpose: "Social Event",
-  },
-  {
-    id: 2,
-    requestedOn: "12-04-2023",
-    venueName: "Shahmai",
-    prefDate: "2023-05-12",
-    noOfGuests: 100,
-    fullName: "Jayant Gautam",
-    mobile: "9818984683",
-    email: "jgautam8@gmail.com",
-    timeOfEvent: "1500 to 2345 hrs",
-    purpose: "Social Event",
-  },
-  {
-    id: 3,
-    requestedOn: "10-04-2023",
-    venueName: "Sukoon",
-    prefDate: "2023-05-10",
-    noOfGuests: 100,
-    fullName: "Rajesh Ranjan",
-    mobile: "9910811192",
-    email: "ranjanranjit.amu@gmail.com",
-    timeOfEvent: "0900 to 1800 hrs",
-    purpose: "Social Event",
-  },
-  {
-    id: 4,
-    requestedOn: "18-03-2023",
-    venueName: "Swarn Mahal",
-    prefDate: "2023-03-12",
-    noOfGuests: 100,
-    fullName: "Akshay Joshi",
-    mobile: "09527984821",
-    email: "akshay@acemoney.in",
-    timeOfEvent: "0900 to 1800 hrs",
-    purpose: "Conference",
-  },
-  {
-    id: 5,
-    requestedOn: "18-03-2023",
-    venueName: "Magadh",
-    prefDate: "2023-04-12",
-    noOfGuests: 100,
-    fullName: "Jimmin",
-    mobile: "7253903131",
-    email: "info@acemoney.in",
-    timeOfEvent: "0900 to 1800 hrs",
-    purpose: "Conference",
-  },
-  {
-    id: 6,
-    requestedOn: "25-02-2023",
-    venueName: "Sukoon",
-    prefDate: "2023-05-23",
-    noOfGuests: 50,
-    fullName: "Yash Sharma",
-    mobile: "7979867155",
-    email: "yashind23@gmail.com",
-    timeOfEvent: "0900 to 1800 hrs",
-    purpose: "Wedding",
-  },
-  {
-    id: 7,
-    requestedOn: "31-01-2023",
-    venueName: "Sukoon",
-    prefDate: "2023-02-28",
-    noOfGuests: 50,
-    fullName: "Jitendra Dixit",
-    mobile: "9927026548",
-    email: "jitendra.21131@ipuc.co.in",
-    timeOfEvent: "1500 to 2345 hrs",
-    purpose: "Social Event",
-  },
-  {
-    id: 8,
-    requestedOn: "25-12-2024",
-    venueName: "Nargis",
-    prefDate: "2023-01-23",
-    noOfGuests: 150,
-    fullName: "Mohammed Shahrukh",
-    mobile: "8294752840",
-    email: "techtarark@gmail.com",
-    timeOfEvent: "1500 to 2345 hrs",
-    purpose: "Social Event",
-  },
-  {
-    id: 9,
-    requestedOn: "23-12-2024",
-    venueName: "Mihila",
-    prefDate: "2023-02-07",
-    noOfGuests: 70,
-    fullName: "Dr Nikhil Bhardwaj",
-    mobile: "7428043390",
-    email: "Nikhilbhardwaj10@outlook.com",
-    timeOfEvent: "0900 to 1800 hrs",
-    purpose: "Wedding",
-  },
-  {
-    id: 10,
-    requestedOn: "23-12-2024",
-    venueName: "Mihila",
-    prefDate: "2023-02-07",
-    noOfGuests: 70,
-    fullName: "Dr Nikhil Bhardwaj",
-    mobile: "7428043390",
-    email: "Nikhilbhardwaj10@outlook.com",
-    timeOfEvent: "0900 to 1800 hrs",
-    purpose: "Wedding",
-  },
-  // Additional data to demonstrate pagination
-  ...Array.from({ length: 42 }, (_, i) => ({
-    id: i + 11,
-    requestedOn: "20-12-2024",
-    venueName: "Sukoon",
-    prefDate: "2023-03-15",
-    noOfGuests: 80,
-    fullName: "Sample User",
-    mobile: "9999999999",
-    email: "sample@example.com",
-    timeOfEvent: "1200 to 1800 hrs",
-    purpose: "Conference",
-  })),
-]
+// Add a type for booking request
+interface BookingRequestTableRow {
+  id: string;
+  requestedOn: string;
+  venueName: string;
+  prefDate: string;
+  noOfGuests: number;
+  fullName: string;
+  mobile: string;
+  email: string;
+  purpose: string;
+  message: string;
+  status: string;
+  raw: any;
+}
 
 export default function BookingRequestsPage() {
   const { toast } = useToast()
-  const [bookingRequests, setBookingRequests] = useState(initialBookingRequests)
-  const [filteredRequests, setFilteredRequests] = useState(initialBookingRequests)
+  const [bookingRequests, setBookingRequests] = useState<BookingRequestTableRow[]>([])
+  const [filteredRequests, setFilteredRequests] = useState<BookingRequestTableRow[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState({ key: "id", direction: "ascending" })
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [selectedRequest, setSelectedRequest] = useState(null)
+  const [selectedRequest, setSelectedRequest] = useState<BookingRequestTableRow | null>(null)
 
   const itemsPerPage = 10
   const totalPages = Math.ceil(filteredRequests.length / itemsPerPage)
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
   const currentItems = filteredRequests.slice(indexOfFirstItem, indexOfLastItem)
+
+  // Map API data to table fields
+  const mapBookingData = (data: any[]) =>
+    data.map((item, idx) => ({
+      id: item._id,
+      requestedOn: item.cdate ? new Date(item.cdate).toLocaleDateString() : "-",
+      venueName: item.hallId?.hall_name || "-",
+      prefDate: item.date ? new Date(item.date).toLocaleDateString() : "-",
+      noOfGuests: item.guests,
+      fullName: item.name,
+      mobile: item.mobile,
+      email: item.email,
+      purpose: item.eventType,
+      message: item.message,
+      status: item.status,
+      raw: item,
+    }))
+
+  // Fetch event bookings
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const res = await axios.get(`${API_ROUTES.eventBookings}`, {
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem("auth-token")}`,
+          },
+        })
+        setBookingRequests(mapBookingData(res.data.data))
+        setFilteredRequests(mapBookingData(res.data.data)) // Initialize filteredRequests with fetched data
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to load bookings", variant: "destructive" })
+      }
+    }
+    fetchBookings()
+  }, [])
 
   // Handle search
   useEffect(() => {
@@ -230,18 +146,25 @@ export default function BookingRequestsPage() {
   }
 
   // Handle actual delete
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedRequest) return
-
-    const updatedRequests = bookingRequests.filter((item) => item.id !== selectedRequest.id)
-    setBookingRequests(updatedRequests)
-
-    toast({
-      title: "Request Deleted",
-      description: `Booking request #${selectedRequest.id} has been deleted`,
-      variant: "destructive",
-    })
-
+    try {
+      await axios.delete(`${API_ROUTES.eventBookings}/${selectedRequest.id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+        },
+      })
+      const updatedRequests = bookingRequests.filter((item) => item.id !== selectedRequest.id)
+      setBookingRequests(updatedRequests)
+      setFilteredRequests(updatedRequests)
+      toast({
+        title: "Request Deleted",
+        description: `Booking request #${selectedRequest.id} has been deleted`,
+        variant: "destructive",
+      })
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to delete booking request", variant: "destructive" })
+    }
     setDeleteDialogOpen(false)
     setSelectedRequest(null)
   }
@@ -273,6 +196,8 @@ export default function BookingRequestsPage() {
     // Reset to first page when search or filter changes
     setCurrentPage(1)
   }, [searchTerm, sortConfig])
+
+  console.log("currentitems", currentItems)
 
   return (
     <div className="space-y-6">
@@ -308,66 +233,58 @@ export default function BookingRequestsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-t border-b text-left">
-                <th className="px-4 py-3 font-medium text-gray-500 cursor-pointer" onClick={() => requestSort("id")}>
-                  <div className="flex items-center"># {getSortDirectionIcon("id")}</div>
-                </th>
-                <th
-                  className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
-                  onClick={() => requestSort("requestedOn")}
-                >
-                  <div className="flex items-center">REQUESTED ON {getSortDirectionIcon("requestedOn")}</div>
-                </th>
-                <th
-                  className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
-                  onClick={() => requestSort("venueName")}
-                >
-                  <div className="flex items-center">VENUE NAME {getSortDirectionIcon("venueName")}</div>
-                </th>
-                <th
-                  className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
-                  onClick={() => requestSort("prefDate")}
-                >
-                  <div className="flex items-center">PREF. DATE {getSortDirectionIcon("prefDate")}</div>
-                </th>
-                <th
-                  className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
-                  onClick={() => requestSort("noOfGuests")}
-                >
-                  <div className="flex items-center">NO. OF GUESTS {getSortDirectionIcon("noOfGuests")}</div>
-                </th>
-                <th
-                  className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
-                  onClick={() => requestSort("fullName")}
-                >
-                  <div className="flex items-center">FULL NAME {getSortDirectionIcon("fullName")}</div>
-                </th>
-                <th
-                  className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
-                  onClick={() => requestSort("mobile")}
-                >
-                  <div className="flex items-center">MOBILE {getSortDirectionIcon("mobile")}</div>
-                </th>
-                <th className="px-4 py-3 font-medium text-gray-500 cursor-pointer" onClick={() => requestSort("email")}>
-                  <div className="flex items-center">EMAIL {getSortDirectionIcon("email")}</div>
-                </th>
-                <th
-                  className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
-                  onClick={() => requestSort("timeOfEvent")}
-                >
-                  <div className="flex items-center">TIME OF EVENT {getSortDirectionIcon("timeOfEvent")}</div>
-                </th>
-                <th
-                  className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
-                  onClick={() => requestSort("purpose")}
-                >
-                  <div className="flex items-center">PURPOSE {getSortDirectionIcon("purpose")}</div>
-                </th>
+                {[
+                  "#",
+                  "REQUESTED ON",
+                  "VENUE NAME",
+                  "PREF. DATE",
+                  "NO. OF GUESTS",
+                  "FULL NAME",
+                  "MOBILE",
+                  "EMAIL",
+                  "PURPOSE",
+                  "MESSAGE",
+                ].map((title, index) => (
+                  <th
+                    key={title}
+                    className="px-4 py-3 font-medium text-gray-500 cursor-pointer"
+                    onClick={() =>
+                      requestSort([
+                        "id",
+                        "requestedOn",
+                        "venueName",
+                        "prefDate",
+                        "noOfGuests",
+                        "fullName",
+                        "mobile",
+                        "email",
+                        "purpose",
+                        "message",
+                      ][index])
+                    }
+                  >
+                    <div className="flex items-center">
+                      {title} {getSortDirectionIcon([
+                        "id",
+                        "requestedOn",
+                        "venueName",
+                        "prefDate",
+                        "noOfGuests",
+                        "fullName",
+                        "mobile",
+                        "email",
+                        "purpose",
+                        "message",
+                      ][index])}
+                    </div>
+                  </th>
+                ))}
                 <th className="px-4 py-3 font-medium text-gray-500">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {currentItems.map((request) => (
-                <tr key={request.id} className="border-b hover:bg-gray-50">
+                <tr key={request._id} className="border-b hover:bg-gray-50">
                   <td className="px-4 py-3">{request.id}</td>
                   <td className="px-4 py-3">{request.requestedOn}</td>
                   <td className="px-4 py-3 text-green-600 font-medium">{request.venueName}</td>
@@ -376,8 +293,8 @@ export default function BookingRequestsPage() {
                   <td className="px-4 py-3 font-medium text-blue-600">{request.fullName}</td>
                   <td className="px-4 py-3">{request.mobile}</td>
                   <td className="px-4 py-3 text-blue-600">{request.email}</td>
-                  <td className="px-4 py-3">{request.timeOfEvent}</td>
                   <td className="px-4 py-3">{request.purpose}</td>
+                  <td className="px-4 py-3">{request.message}</td>
                   <td className="px-4 py-3">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -398,21 +315,6 @@ export default function BookingRequestsPage() {
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="border-t">
-                <th className="px-4 py-3 font-medium text-gray-500">#</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Requested on</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Venue Name</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Pref. Date</th>
-                <th className="px-4 py-3 font-medium text-gray-500">No. of guests</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Full Name</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Mobile</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Email</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Time of event</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Purpose</th>
-                <th className="px-4 py-3 font-medium text-gray-500"></th>
-              </tr>
-            </tfoot>
           </table>
         </div>
 
@@ -425,55 +327,34 @@ export default function BookingRequestsPage() {
         </div>
       </div>
 
-      {/* View Details Dialog */}
+      {/* View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Booking Request Details</DialogTitle>
-            <DialogDescription>Viewing details for booking request #{selectedRequest?.id}</DialogDescription>
+            <DialogDescription>
+              Viewing details for booking request #{selectedRequest?._id}
+            </DialogDescription>
           </DialogHeader>
           {selectedRequest && (
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">ID:</span>
-                <span className="col-span-2">{selectedRequest.id}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Requested On:</span>
-                <span className="col-span-2">{selectedRequest.requestedOn}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Venue Name:</span>
-                <span className="col-span-2 text-green-600 font-medium">{selectedRequest.venueName}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Preferred Date:</span>
-                <span className="col-span-2">{selectedRequest.prefDate}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Number of Guests:</span>
-                <span className="col-span-2">{selectedRequest.noOfGuests}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Full Name:</span>
-                <span className="col-span-2 text-blue-600 font-medium">{selectedRequest.fullName}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Mobile:</span>
-                <span className="col-span-2">{selectedRequest.mobile}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Email:</span>
-                <span className="col-span-2 text-blue-600">{selectedRequest.email}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Time of Event:</span>
-                <span className="col-span-2">{selectedRequest.timeOfEvent}</span>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <span className="font-medium">Purpose:</span>
-                <span className="col-span-2">{selectedRequest.purpose}</span>
-              </div>
+              {[
+                ["ID", selectedRequest.id],
+                ["Requested On", selectedRequest.requestedOn],
+                ["Venue Name", selectedRequest.venueName],
+                ["Preferred Date", selectedRequest.prefDate],
+                ["Number of Guests", selectedRequest.noOfGuests],
+                ["Full Name", selectedRequest.fullName],
+                ["Mobile", selectedRequest.mobile],
+                ["Email", selectedRequest.email],
+                ["Message", selectedRequest.message || ""],
+                ["Purpose", selectedRequest.purpose],
+              ].map(([label, value]) => (
+                <div className="grid grid-cols-3 items-center gap-4" key={label}>
+                  <span className="font-medium">{label}:</span>
+                  <span className="col-span-2">{value}</span>
+                </div>
+              ))}
             </div>
           )}
           <DialogFooter>
@@ -488,7 +369,7 @@ export default function BookingRequestsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete booking request #{selectedRequest?.id} by {selectedRequest?.fullName}. This
+              This will permanently delete booking request #{selectedRequest?._id} by {selectedRequest?.name}. This
               action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -501,5 +382,5 @@ export default function BookingRequestsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }
