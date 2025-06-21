@@ -177,6 +177,12 @@ export const hotelManagementItems: SidebarItem[] = [
         path: "/dining/gallery",
         permission: PERMISSIONS.DINING_VIEW,
       },
+      {
+        label:"Dining Booking",
+        icon: Utensils,
+        path: "/dining/bookings",
+        permission: PERMISSIONS.DINING_VIEW,
+      }
     ],
   },
   // {
@@ -283,7 +289,7 @@ export const otherItems: SidebarItem[] = [
     label: "Settings",
     icon: Settings,
     path: "/settings",
-    permission: PERMISSIONS.DASHBOARD_VIEW,
+    permission: PERMISSIONS.USER_ROLE_MANAGE,
   },
 ]
 

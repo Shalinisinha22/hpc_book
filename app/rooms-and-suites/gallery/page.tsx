@@ -23,6 +23,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import axios from "axios"
+import { API_ROUTES } from "@/config/api"
+import { uploadToCloudinary } from '@/config/cloudinary';
+
+interface Room {
+  _id: string
+  room_title: string
+  roomImage: { url: string; name: string; ext: string; _id: string }[]
+}
 
 interface GalleryImage {
   id: number
@@ -34,58 +43,61 @@ export default function GalleryPage() {
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Gallery images state
-  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([
-    { id: 1, imageUrl: "/opulent-suite.png", roomType: "Premium Suite" },
-    { id: 2, imageUrl: "/luxurious-city-view.png", roomType: "Premium Room" },
-    { id: 3, imageUrl: "/luxurious-suite.png", roomType: "Deluxe Room" },
-    { id: 4, imageUrl: "/luxurious-city-suite.png", roomType: "Deluxe Suite" },
-    { id: 5, imageUrl: "/city-lights-penthouse.png", roomType: "The Royal Pent House" },
-    { id: 6, imageUrl: "/opulent-marble-spa.png", roomType: "Premium Suite" },
-    { id: 7, imageUrl: "/balcony-view.png", roomType: "Premium Room" },
-    { id: 8, imageUrl: "/elegant-hotel-dining.png", roomType: "Deluxe Suite" },
-    { id: 9, imageUrl: "/city-lights-hotel.png", roomType: "Standard Room" },
-    { id: 10, imageUrl: "/opulent-arrival.png", roomType: "Big Family Rooms" },
-  ])
+  // Rooms state
+  const [rooms, setRooms] = useState<Room[]>([])
 
   // Add photo dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [selectedRoomType, setSelectedRoomType] = useState("")
+  const [selectedRoomId, setSelectedRoomId] = useState<string>("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   // Delete confirmation dialog state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [imageToDelete, setImageToDelete] = useState<number | null>(null)
+  const [imageToDelete, setImageToDelete] = useState<{ roomId: string; imageId: string } | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
-  const totalPages = Math.ceil(galleryImages.length / itemsPerPage)
+
+  // Helper to flatten all images with room info
+  const getAllImages = () => {
+    return rooms.flatMap((room) =>
+      (room.roomImage || []).map((img) => ({
+        ...img,
+        roomId: room._id,
+        roomTitle: room.room_title
+      }))
+    );
+  };
+
+  const totalPages = Math.ceil(getAllImages().length / itemsPerPage)
 
   // Add this effect after the other state declarations
   useEffect(() => {
     setCurrentPage(1)
-  }, [galleryImages.length]) // Reset to page 1 when the gallery items change
+  }, [rooms.length]) // Reset to page 1 when the gallery items change
 
-  // Room types
-  const roomTypes = [
-    "Standard Room",
-    "Premium Room",
-    "Premium Suite",
-    "Deluxe Room",
-    "Deluxe Suite",
-    "The Royal Pent House",
-    "Studio Flat",
-    "Big Family Rooms",
-  ]
+  // Fetch rooms on mount
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const res = await axios.get(API_ROUTES.rooms)
+        setRooms(res.data.rooms || res.data)
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to load rooms", variant: "destructive" })
+      }
+    }
+    fetchRooms()
+  }, [])
 
-  // Get current page data
+  // Get current page data (images)
   const getCurrentPageData = () => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    return galleryImages.slice(startIndex, endIndex)
-  }
+    const allImages = getAllImages();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return allImages.slice(startIndex, endIndex);
+  };
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -108,70 +120,74 @@ export default function GalleryPage() {
   }
 
   // Handle save button click
-  const handleSave = () => {
-    if (!selectedRoomType) {
-      toast({
-        title: "Room type required",
-        description: "Please select a room type",
-        variant: "destructive",
-      })
+  const handleSave = async () => {
+    if (!selectedRoomId) {
+      toast({ title: "Room required", description: "Please select a room", variant: "destructive" })
       return
     }
-
-    if (!selectedFile && !previewUrl) {
-      toast({
-        title: "Image required",
-        description: "Please select an image to upload",
-        variant: "destructive",
-      })
+    if (!selectedFile) {
+      toast({ title: "Image required", description: "Please select an image to upload", variant: "destructive" })
       return
     }
-
-    // In a real app, you would upload the file to a server here
-    // For now, we'll just add it to our state with the preview URL
-
-    const newImage: GalleryImage = {
-      id: galleryImages.length > 0 ? Math.max(...galleryImages.map((img) => img.id)) + 1 : 1,
-      imageUrl: previewUrl || "/cozy-hotel-corner.png",
-      roomType: selectedRoomType,
+    try {
+      // 1. Upload to Cloudinary
+      const cloudData = await uploadToCloudinary(selectedFile, 'image');
+      const imagePayload = {
+        url: cloudData.secure_url,
+        name: cloudData.public_id,
+        ext: cloudData.format
+      };
+      const token = localStorage.getItem("auth-token");
+      if (!token) throw new Error("Not authenticated");
+      // 2. Send to backend
+      await axios.post(
+        `${API_ROUTES.rooms}/${selectedRoomId}/image`,
+        imagePayload,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
+      )
+      toast({ title: "Image added", description: "The image has been uploaded successfully." })
+      setIsAddDialogOpen(false)
+      setSelectedRoomId("")
+      setSelectedFile(null)
+      setPreviewUrl(null)
+      // Refetch rooms to update gallery
+      const res = await axios.get(API_ROUTES.rooms)
+      setRooms(res.data.rooms || res.data)
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
     }
-
-    setGalleryImages([...galleryImages, newImage])
-
-    // Reset form and close dialog
-    setSelectedRoomType("")
-    setSelectedFile(null)
-    setPreviewUrl(null)
-    setIsAddDialogOpen(false)
-
-    toast({
-      title: "Image added",
-      description: "The image has been added to the gallery successfully.",
-    })
   }
 
   // Handle delete button click
-  const handleDelete = (id: number) => {
-    setImageToDelete(id)
+  const handleDelete = (roomId: string, imageId: string) => {
+    setImageToDelete({ roomId, imageId })
     setIsDeleteDialogOpen(true)
   }
 
   // Confirm delete
-  const confirmDelete = () => {
-    if (imageToDelete !== null) {
-      const updatedGallery = galleryImages.filter((img) => img.id !== imageToDelete)
-      setGalleryImages(updatedGallery)
-
-      // If we're on a page that no longer exists after deleting, go to the last page
-      const newTotalPages = Math.ceil(updatedGallery.length / itemsPerPage)
-      if (currentPage > newTotalPages && newTotalPages > 0) {
-        setCurrentPage(newTotalPages)
+  const confirmDelete = async () => {
+    if (imageToDelete) {
+      try {
+        await axios.delete(`${API_ROUTES.rooms}/${imageToDelete.roomId}/image/${imageToDelete.imageId}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth-token")}`
+          }
+        })
+        toast({
+          title: "Image deleted",
+          description: "The image has been removed from the gallery.",
+        })
+        // Refetch rooms to update gallery
+        const res = await axios.get(API_ROUTES.rooms)
+        setRooms(res.data.rooms || res.data)
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to delete image", variant: "destructive" })
       }
-
-      toast({
-        title: "Image deleted",
-        description: "The image has been removed from the gallery.",
-      })
     }
     setIsDeleteDialogOpen(false)
     setImageToDelete(null)
@@ -184,7 +200,7 @@ export default function GalleryPage() {
 
       {/* Main Content */}
       <div className="flex-1">
-        <PageHeader />
+        <PageHeader heading="Rooms & Suites Gallery" />
 
         <main className="p-4 md:p-6">
           <div className="bg-gold p-4 md:p-6 rounded-t-lg flex justify-between items-center">
@@ -213,36 +229,34 @@ export default function GalleryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {getCurrentPageData().map((image, index) => (
-                    <tr key={image.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {(currentPage - 1) * itemsPerPage + index + 1}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="h-20 w-32 relative">
-                          <Image
-                            src={image.imageUrl || "/placeholder.svg"}
-                            alt={`${image.roomType} image`}
-                            fill
-                            className="object-cover rounded-md"
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{image.roomType}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-500"
-                          onClick={() => handleDelete(image.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {getCurrentPageData().length === 0 && (
+                  {getCurrentPageData().length > 0 ? (
+                    getCurrentPageData().map((img, idx) => (
+                      <tr key={img._id} className="hover:bg-gray-50">
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+                        <td className="px-4 py-4">
+                          <div className="h-20 w-32 relative">
+                            <Image
+                              src={img.url || "/placeholder.svg"}
+                              alt={`${img.roomTitle} image`}
+                              fill
+                              className="object-cover rounded-md"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{img.roomTitle}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500"
+                            onClick={() => handleDelete(img.roomId, img._id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
                     <tr>
                       <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
                         No images found in the gallery
@@ -254,7 +268,7 @@ export default function GalleryPage() {
             </div>
 
             {/* Pagination */}
-            {galleryImages.length > 0 && (
+            {rooms.length > 0 && (
               <div className="p-4 border-t border-gray-200">
                 <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
               </div>
@@ -274,14 +288,14 @@ export default function GalleryPage() {
               <label htmlFor="room-type" className="block text-sm font-medium text-gray-700">
                 Rooms Type
               </label>
-              <Select value={selectedRoomType} onValueChange={setSelectedRoomType}>
+              <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
                 <SelectTrigger id="room-type" className="w-full">
-                  <SelectValue placeholder="-- Choose Rooms Type --" />
+                  <SelectValue placeholder="-- Choose Room --" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roomTypes.map((roomType) => (
-                    <SelectItem key={roomType} value={roomType}>
-                      {roomType}
+                  {rooms.map((room) => (
+                    <SelectItem key={room._id} value={room._id}>
+                      {room.room_title}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -10,7 +10,7 @@ import { SalesChart } from "@/components/sales-chart"
 import { OrdersChart } from "@/components/orders-chart"
 import { RecentBookings } from "@/components/recent-bookings"
 import { PageHeader } from "@/components/page-header"
-import { API_BASE_URL, API_ROUTES } from "@/config/api"
+import {  API_ROUTES } from "@/config/api"
 // Remove the direct import of useTheme if it's causing issues
 // We'll use a more resilient approach
 
@@ -46,7 +46,7 @@ export default function Dashboard() {
     const fetchBookingsCount = async () => {
       try {
         setIsLoadingBookings(true)
-        const response = await fetch(`${API_ROUTES.bookings}/counter`,{
+        const response = await fetch(`${API_ROUTES.bookings.all}/counter`,{
          
             headers: {
               "Authorization": `Bearer ${localStorage.getItem("auth-token")}`
@@ -142,7 +142,7 @@ export default function Dashboard() {
     const fetchTotalRevenue = async () => {
       try {
         setIsLoadingRevenue(true)
-        const response = await fetch(`${API_ROUTES.bookings}/revenue`, {
+        const response = await fetch(`${API_ROUTES.bookings.all}/revenue`, {
           headers: {
             "Authorization": `Bearer ${localStorage.getItem("auth-token")}`
           }

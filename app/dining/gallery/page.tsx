@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -8,56 +8,77 @@ import { toast } from "@/components/ui/use-toast"
 import { Pagination } from "@/components/pagination"
 import { ImagePlus, Plus, Trash2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { uploadToCloudinary } from "@/config/cloudinary"
+import { API_ROUTES } from "@/config/api"
 
-// Sample data for dining types
-const diningTypes = [
-  { id: 1, name: "Royal Spice" },
-  { id: 2, name: "Panorama Lounge" },
-  { id: 3, name: "Café Terrace" },
-  { id: 4, name: "Banquet Hall" },
-  { id: 5, name: "Rooftop Bar" },
-]
-
-// Sample initial gallery items
-const initialGalleryItems = [
-  {
-    id: 1,
-    image: "/elegant-hotel-dining.png",
-    diningType: "Royal Spice",
-  },
-  {
-    id: 2,
-    image: "/city-lights-hotel.png",
-    diningType: "Panorama Lounge",
-  },
-]
+type Dining = {
+  _id: string
+  name: string
+  image: Array<{ url: string; name: string; ext: string; _id?: string }>
+}
+type GalleryItem = {
+  id: string
+  imgId: string | number
+  image: string
+  diningId: string
+  diningName: string
+}
+type FormData = {
+  diningId: string
+  photos: File[]
+}
 
 export default function DiningsGalleryPage() {
-  const [galleryItems, setGalleryItems] = useState(initialGalleryItems)
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([])
+  const [dinings, setDinings] = useState<Dining[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState(null)
+  const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
-
-  // Form state
-  const [formData, setFormData] = useState({
-    diningType: "",
+  const [formData, setFormData] = useState<FormData>({
+    diningId: "",
     photos: [],
   })
+  const [photosPreviews, setPhotosPreviews] = useState<string[]>([])
 
-  // Preview images
-  const [photosPreviews, setPhotosPreviews] = useState([])
+  // Fetch all dinings and flatten images for gallery
+  useEffect(() => {
+    fetch(`${API_ROUTES.dining}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to fetch dinings")
+        const data = await res.json()
+        setDinings(data.dinings || data || [])
+      
+        // Flatten all images for gallery view
+        const allImages: GalleryItem[] = []
+        ;(data.dinings || data || []).forEach((dining: Dining) => {
+          if (dining.image && Array.isArray(dining.image)) {
+            dining.image.forEach((img, idx) => {
+              allImages.push({
+                id: `${dining._id}_${idx}`,
+                imgId: img._id || idx,
+                image: img.url,
+                diningId: dining._id,
+                diningName: dining.name,
+              })
+            })
+          }
+        })
+        setGalleryItems(allImages)
+      })
+      .catch(() => setGalleryItems([]))
+  }, [])
 
-  const handleDiningTypeChange = (value) => {
+  const handleDiningTypeChange = (value: string) => {
     setFormData({
       ...formData,
-      diningType: value,
+      diningId: value,
     })
   }
 
-  const handlePhotosChange = (e) => {
-    const files = Array.from(e.target.files)
+  const handlePhotosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []) as File[]
     if (files.length > 0) {
       setFormData({
         ...formData,
@@ -65,11 +86,11 @@ export default function DiningsGalleryPage() {
       })
 
       // Generate previews for all selected files
-      const newPreviews = []
+      const newPreviews: string[] = []
       files.forEach((file) => {
         const reader = new FileReader()
         reader.onloadend = () => {
-          newPreviews.push(reader.result)
+          newPreviews.push(reader.result as string)
           if (newPreviews.length === files.length) {
             setPhotosPreviews([...photosPreviews, ...newPreviews])
           }
@@ -79,7 +100,7 @@ export default function DiningsGalleryPage() {
     }
   }
 
-  const handleRemovePhoto = (index) => {
+  const handleRemovePhoto = (index: number) => {
     const updatedPhotos = [...formData.photos]
     updatedPhotos.splice(index, 1)
 
@@ -93,66 +114,72 @@ export default function DiningsGalleryPage() {
     setPhotosPreviews(updatedPreviews)
   }
 
-  const handleAddPhotos = () => {
-    // Validate form
-    if (!formData.diningType) {
-      toast({
-        title: "Missing Dining Type",
-        description: "Please select a dining type",
-        variant: "destructive",
-      })
+  const handleAddPhotos = async () => {
+    if (!formData.diningId) {
+      toast({ title: "Missing Dining", description: "Please select a dining", variant: "destructive" })
       return
     }
 
     if (formData.photos.length === 0) {
-      toast({
-        title: "No Photos Selected",
-        description: "Please upload at least one photo",
-        variant: "destructive",
-      })
+      toast({ title: "No Photos Selected", description: "Please upload at least one photo", variant: "destructive" })
       return
     }
 
-    // Add new gallery items
-    const newItems = photosPreviews.map((preview, index) => ({
-      id: galleryItems.length + index + 1,
-      image: preview,
-      diningType: formData.diningType,
-    }))
+    try {
+      // Upload all images to Cloudinary
+      const uploadedImagesRaw = await Promise.all(
+        formData.photos.map((file) => uploadToCloudinary(file, "image"))
+      )
+      const uploadedImages = uploadedImagesRaw.map(img => ({
+        url: img.secure_url,
+        name: img.original_filename,
+        ext: img.format
+      }))
 
-    setGalleryItems([...galleryItems, ...newItems])
-    setIsAddDialogOpen(false)
-    resetForm()
+      // Send to backend
+      const res = await fetch(`${API_ROUTES.dining}/${formData.diningId}/image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("auth-token")}` },
+        body: JSON.stringify({ images: uploadedImages }),
+      })
+      if (!res.ok) throw new Error("Failed to add images")
+      toast({ title: "Photos Added", description: `${formData.photos.length} photo(s) have been added.` })
+      setIsAddDialogOpen(false)
+      resetForm()
 
-    toast({
-      title: "Photos Added",
-      description: `${formData.photos.length} photo(s) have been added to the gallery`,
-    })
+      // Refresh gallery
+      const data = await res.json()
+      window.location.reload()
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to add images", variant: "destructive" })
+    }
   }
 
-  const handleDeleteClick = (item) => {
+  const handleDeleteClick = (item: GalleryItem) => {
     setSelectedItem(item)
     setIsDeleteDialogOpen(true)
   }
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (selectedItem) {
-      setGalleryItems(galleryItems.filter((item) => item.id !== selectedItem.id))
-      setIsDeleteDialogOpen(false)
-      setSelectedItem(null)
-
-      toast({
-        title: "Photo Deleted",
-        description: "The photo has been deleted successfully",
-      })
+      try {
+        const res = await fetch(`${API_ROUTES.dining}/${selectedItem.diningId}/image/${selectedItem.imgId}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${localStorage.getItem("auth-token")}` },
+        })
+        if (!res.ok) throw new Error("Failed to delete image")
+        setGalleryItems(galleryItems.filter((item) => item.id !== selectedItem.id))
+        setIsDeleteDialogOpen(false)
+        setSelectedItem(null)
+        toast({ title: "Photo Deleted", description: "The photo has been deleted successfully" })
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message || "Failed to delete image", variant: "destructive" })
+      }
     }
   }
 
   const resetForm = () => {
-    setFormData({
-      diningType: "",
-      photos: [],
-    })
+    setFormData({ diningId: "", photos: [] })
     setPhotosPreviews([])
   }
 
@@ -202,7 +229,7 @@ export default function DiningsGalleryPage() {
                           />
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium">{item.diningType}</td>
+                      <td className="px-4 py-3 font-medium">{item.diningName}</td>
                       <td className="px-4 py-3">
                         <div className="flex space-x-2">
                           <Button variant="ghost" size="icon" title="Delete" onClick={() => handleDeleteClick(item)}>
@@ -242,15 +269,13 @@ export default function DiningsGalleryPage() {
             {/* Dining Type */}
             <div className="space-y-2">
               <Label htmlFor="diningType">Dining Type</Label>
-              <Select value={formData.diningType} onValueChange={handleDiningTypeChange}>
+              <Select value={formData.diningId} onValueChange={handleDiningTypeChange}>
                 <SelectTrigger id="diningType">
-                  <SelectValue placeholder="Select dining type" />
+                  <SelectValue placeholder="Select dining" />
                 </SelectTrigger>
                 <SelectContent>
-                  {diningTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.name}>
-                      {type.name}
-                    </SelectItem>
+                  {dinings.map((dining) => (
+                    <SelectItem key={dining._id} value={dining._id}>{dining.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

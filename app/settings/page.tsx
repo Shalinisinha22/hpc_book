@@ -3,11 +3,13 @@
 import type React from "react"
 
 import { useState } from "react"
+import axios from "axios"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
 import { PageHeader } from "@/components/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { API_ROUTES } from '@/config/api';
 
 export default function SettingsPage() {
   const { toast } = useToast()
@@ -74,21 +76,43 @@ export default function SettingsPage() {
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    setIsSubmitting(false)
-
-    toast({
-      title: "Password changed successfully",
-      description: "Your password has been updated.",
-    })
-
-    setFormData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    })
+    try {
+      const token = localStorage.getItem("auth-token");
+      if (!token) throw new Error("Not authenticated");
+      await axios.put(
+        API_ROUTES.changePassword,
+        {
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      toast({
+        title: "Password changed successfully",
+        description: "Your password has been updated.",
+      })
+      setFormData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      })
+      // Clear local storage and reload to logout
+      localStorage.clear();
+      window.location.href = "/login";
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.response?.data?.message || "Failed to change password",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Handle lowest price toggle

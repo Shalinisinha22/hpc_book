@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { Info, Trash2, ImageIcon } from "lucide-react"
 import { Card } from "@/components/ui/card"
@@ -22,51 +22,70 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import axios from "axios"
+import { uploadToCloudinary } from '@/config/cloudinary';
+import { API_ROUTES } from '@/config/api';
 
-interface GalleryImage {
-  id: number
-  imageUrl: string
-  hallType: string
+interface Hall {
+  _id: string;
+  hall_name: string;
+  hall_image: { url: string; name: string; ext: string; _id: string }[];
 }
 
 export default function HallsGalleryPage() {
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Gallery images state
-  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([
-    { id: 1, imageUrl: "/hall-swarn-mahal.png", hallType: "Swarn Mahal" },
-    { id: 2, imageUrl: "/hall-crystal.png", hallType: "Crystal" },
-    { id: 3, imageUrl: "/hall-suloon.png", hallType: "Suloon" },
-    { id: 4, imageUrl: "/hall-magadh.png", hallType: "Magadh" },
-    { id: 5, imageUrl: "/hall-mithila.png", hallType: "Mithila" },
-    { id: 6, imageUrl: "/grand-hallway.png", hallType: "Swarn Mahal" },
-  ])
+  // Halls state
+  const [halls, setHalls] = useState<Hall[]>([])
 
   // Add photo dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [selectedHallType, setSelectedHallType] = useState("")
+  const [selectedHallId, setSelectedHallId] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   // Delete confirmation dialog state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [imageToDelete, setImageToDelete] = useState<number | null>(null)
+  const [imageToDelete, setImageToDelete] = useState<{ hallId: string; imageId: string } | null>(null)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 5
-  const totalPages = Math.ceil(galleryImages.length / itemsPerPage)
 
-  // Hall types
-  const hallTypes = ["Swarn Mahal", "Crystal", "Suloon", "Magadh", "Mithila"]
+  // Fetch halls on mount
+  useEffect(() => {
+    const fetchHalls = async () => {
+      try {
+        const res = await axios.get(API_ROUTES.halls)
+        setHalls(res.data.halls || res.data)
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to load halls", variant: "destructive" })
+      }
+    }
+    fetchHalls()
+  }, [])
 
-  // Get current page data
+  // Helper to flatten all images with hall info
+  const getAllImages = () => {
+    return halls.flatMap((hall) =>
+      (hall.hall_image || []).map((img) => ({
+        ...img,
+        hallId: hall._id,
+        hallName: hall.hall_name
+      }))
+    );
+  };
+
+  const totalPages = Math.ceil(getAllImages().length / itemsPerPage)
+
+  // Get current page data (images)
   const getCurrentPageData = () => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    return galleryImages.slice(startIndex, endIndex)
-  }
+    const allImages = getAllImages();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return allImages.slice(startIndex, endIndex);
+  };
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -78,8 +97,6 @@ export default function HallsGalleryPage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
       setSelectedFile(file)
-
-      // Create preview URL
       const reader = new FileReader()
       reader.onloadend = () => {
         setPreviewUrl(reader.result as string)
@@ -89,64 +106,71 @@ export default function HallsGalleryPage() {
   }
 
   // Handle save button click
-  const handleSave = () => {
-    if (!selectedHallType) {
-      toast({
-        title: "Hall type required",
-        description: "Please select a hall type",
-        variant: "destructive",
-      })
+  const handleSave = async () => {
+    if (!selectedHallId) {
+      toast({ title: "Hall required", description: "Please select a hall", variant: "destructive" })
       return
     }
-
-    if (!selectedFile && !previewUrl) {
-      toast({
-        title: "Image required",
-        description: "Please select an image to upload",
-        variant: "destructive",
-      })
+    if (!selectedFile) {
+      toast({ title: "Image required", description: "Please select an image to upload", variant: "destructive" })
       return
     }
-
-    // In a real app, you would upload the file to a server here
-    // For now, we'll just add it to our state with the preview URL
-
-    const newImage: GalleryImage = {
-      id: galleryImages.length > 0 ? Math.max(...galleryImages.map((img) => img.id)) + 1 : 1,
-      imageUrl: previewUrl || "/grand-hallway.png",
-      hallType: selectedHallType,
+    try {
+      // 1. Upload to Cloudinary
+      const cloudData = await uploadToCloudinary(selectedFile, 'image');
+      const imagePayload = {
+        url: cloudData.secure_url,
+        name: cloudData.public_id,
+        ext: cloudData.format
+      };
+      const token = localStorage.getItem("auth-token");
+      if (!token) throw new Error("Not authenticated");
+      // 2. Send to backend
+      await axios.post(
+        `${API_ROUTES.halls}/${selectedHallId}/image`,
+        imagePayload,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
+      )
+      toast({ title: "Image added", description: "The image has been uploaded successfully." })
+      setIsAddDialogOpen(false)
+      setSelectedHallId("")
+      setSelectedFile(null)
+      setPreviewUrl(null)
+      // Refetch halls to update gallery
+      const res = await axios.get(API_ROUTES.halls)
+      setHalls(res.data.halls || res.data)
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to upload image", variant: "destructive" })
     }
-
-    setGalleryImages([...galleryImages, newImage])
-
-    // Reset form and close dialog
-    setSelectedHallType("")
-    setSelectedFile(null)
-    setPreviewUrl(null)
-    setIsAddDialogOpen(false)
-
-    toast({
-      title: "Image added",
-      description: "The image has been added to the gallery successfully.",
-    })
   }
 
   // Handle delete button click
-  const handleDelete = (id: number) => {
-    setImageToDelete(id)
+  const handleDelete = (hallId: string, imageId: string) => {
+    setImageToDelete({ hallId, imageId })
     setIsDeleteDialogOpen(true)
   }
 
   // Confirm delete
-  const confirmDelete = () => {
-    if (imageToDelete !== null) {
-      const updatedGallery = galleryImages.filter((img) => img.id !== imageToDelete)
-      setGalleryImages(updatedGallery)
-
-      toast({
-        title: "Image deleted",
-        description: "The image has been removed from the gallery.",
-      })
+  const confirmDelete = async () => {
+    if (imageToDelete) {
+      try {
+        await axios.delete(`${API_ROUTES.halls}/${imageToDelete.hallId}/image/${imageToDelete.imageId}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth-token")}`
+          }
+        })
+        toast({ title: "Image deleted", description: "The image has been removed from the gallery." })
+        // Refetch halls to update gallery
+        const res = await axios.get(API_ROUTES.halls)
+        setHalls(res.data.halls || res.data)
+      } catch (err) {
+        toast({ title: "Error", description: "Failed to delete image", variant: "destructive" })
+      }
     }
     setIsDeleteDialogOpen(false)
     setImageToDelete(null)
@@ -183,36 +207,34 @@ export default function HallsGalleryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {getCurrentPageData().map((image, index) => (
-                  <tr key={image.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {(currentPage - 1) * itemsPerPage + index + 1}
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="h-20 w-32 relative">
-                        <Image
-                          src={image.imageUrl || "/placeholder.svg?height=80&width=128&query=hall"}
-                          alt={`${image.hallType} image`}
-                          fill
-                          className="object-cover rounded-md"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{image.hallType}</td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500"
-                        onClick={() => handleDelete(image.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-
-                {getCurrentPageData().length === 0 && (
+                {getCurrentPageData().length > 0 ? (
+                  getCurrentPageData().map((img, idx) => (
+                    <tr key={img._id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+                      <td className="px-4 py-4">
+                        <div className="h-20 w-32 relative">
+                          <Image
+                            src={img.url || "/placeholder.svg"}
+                            alt={`${img.hallName} image`}
+                            fill
+                            className="object-cover rounded-md"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">{img.hallName}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500"
+                          onClick={() => handleDelete(img.hallId, img._id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
                       No images found in the gallery
@@ -224,7 +246,7 @@ export default function HallsGalleryPage() {
           </div>
 
           {/* Pagination */}
-          {galleryImages.length > 0 && (
+          {halls.length > 0 && (
             <div className="p-4 border-t border-gray-200">
               <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
             </div>
@@ -243,14 +265,14 @@ export default function HallsGalleryPage() {
               <label htmlFor="hall-type" className="block text-sm font-medium text-gray-700">
                 Hall Type
               </label>
-              <Select value={selectedHallType} onValueChange={setSelectedHallType}>
+              <Select value={selectedHallId} onValueChange={setSelectedHallId}>
                 <SelectTrigger id="hall-type" className="w-full">
-                  <SelectValue placeholder="-- Choose Hall Type --" />
+                  <SelectValue placeholder="-- Choose Hall --" />
                 </SelectTrigger>
                 <SelectContent>
-                  {hallTypes.map((hallType) => (
-                    <SelectItem key={hallType} value={hallType}>
-                      {hallType}
+                  {halls.map((hall) => (
+                    <SelectItem key={hall._id} value={hall._id}>
+                      {hall.hall_name}
                     </SelectItem>
                   ))}
                 </SelectContent>

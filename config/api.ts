@@ -19,4 +19,7 @@ export const API_ROUTES = {
   unavailabilities: `${API_BASE_URL}/api/v1/room-availability/unavailabilities`,
   eventBookings:`${API_BASE_URL}/api/v1/event-bookings`,
   roles:`${API_BASE_URL}/api/v1/roles`,
+  changePassword: `${API_BASE_URL}/api/v1/users/change-password`,
+  dining:`${API_BASE_URL}/api/v1/dining`,
+  diningBookings: `${API_BASE_URL}/api/v1/dining-bookings`,
 };
