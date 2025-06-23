@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'https://hpc-backend.vercel.app'
+export const API_BASE_URL = 'http://hpc-backend.vercel.app'
 // 'https://hpc-backend.vercel.app';
 export const API_ROUTES = {
   login: `${API_BASE_URL}/api/v1/users/login`,

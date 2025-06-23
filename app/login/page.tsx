@@ -155,39 +155,44 @@ export default function LoginPage() {
         {/* Content overlay */}
         <div className="relative z-20 flex flex-col justify-between h-full w-full p-12 text-white">
           <div>
-            {/* Logo and hotel name */}
-            <div className="flex items-center mb-8">
-              <div className="relative">
-                <div className="absolute -inset-1 rounded-full bg-white/20 blur-sm"></div>
-                <div className="relative">
-                  <Image
-                    src="/hotel-patliputra-logo.png"
-                    alt="Hotel Patliputra Continental Logo"
-                    width={100}
-                    height={100}
-                    className="rounded-full border-2 border-white/30"
-                  />
-                </div>
+            {/* Centered logo, hotel name, and tagline */}
+            <div className="flex flex-col items-center justify-center mb-8 gap-4">
+              <div className="bg-white/90 rounded-full shadow-lg flex items-center justify-center" style={{width: 160, height: 160}}>
+                <Image
+                  src="/hotel-patliputra-logo.png"
+                  alt="Hotel Patliputra Continental Logo"
+                  width={120}
+                  height={120}
+                  className="object-contain"
+                  priority
+                />
               </div>
-              <div className="ml-4">
-                <h1 className="text-3xl font-bold">Hotel Patliputra Continental</h1>
-                <div className="flex items-center mt-1">
-                  <span className="text-white/80">Tradition & Hospitality</span>
-                  <div className="flex ml-2">
-                    <span className="text-yellow-400">★</span>
-                    <span className="text-yellow-400">★</span>
-                    <span className="text-yellow-400">★</span>
-                    <span className="text-yellow-400">★</span>
-                    <span className="text-yellow-400">★</span>
-                  </div>
-                </div>
+              <h1 className="text-3xl font-bold text-center text-white drop-shadow-lg">Hotel Patliputra Continental</h1>
+              <span className="text-white/80 text-center">Tradition & Hospitality</span>
+              <div className="flex justify-center mt-1">
+                {[...Array(5)].map((_, i) => (
+                  <span key={i} className="text-yellow-400 text-xl">★</span>
+                ))}
               </div>
             </div>
 
             {/* Hotel highlight information */}
-            <div className="mt-8 max-w-md">
-              <div className="bg-black/30 backdrop-blur-sm p-6 rounded-lg border border-white/10">
-                <h2 className="text-2xl font-semibold mb-2">Welcome to Hotel Patliputra Continental</h2>
+            <div className="mt-8 ">
+
+               {/* <div className="flex justify-center items-center w-full h-[300px]">
+                  <div className="bg-white/80 rounded-full shadow-lg p-4 aspect-square flex items-center justify-center" style={{width: 220, height: 220}}>
+                    <Image
+                      src="/hotel-patliputra-logo.png"
+                      alt="Hotel Patliputra Continental Logo"
+                      width={180}
+                      height={180}
+                      className="object-contain mx-auto"
+                      priority
+                    />
+                  </div>
+                </div> */}
+              {/* <div className="bg-black/30 backdrop-blur-sm p-6 rounded-lg border border-white/10"> */}
+                {/* <h2 className="text-2xl font-semibold mb-2">Welcome to Hotel Patliputra Continental</h2>
 
                 <div className="mt-6 space-y-4">
                   {hotelHighlights.map((highlight, index) => (
@@ -228,8 +233,8 @@ export default function LoginPage() {
                       />
                     ))}
                   </div>
-                </div>
-              </div>
+                </div> */}
+              {/* </div> */}
             </div>
           </div>
 
