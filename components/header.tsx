@@ -102,7 +102,7 @@ export function Header() {
 
         <div className="relative group">
           <div className="absolute inset-0 bg-white/20 rounded-full blur-md group-hover:bg-white/30 transition-all duration-300 opacity-0 group-hover:opacity-100"></div>
-          <div className="relative">
+          {/* <div className="relative">
             <Search
               className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${theme === "light" ? "text-amber-900/70 group-hover:text-amber-900" : "text-gray-400 group-hover:text-gray-300"} h-4 w-4 transition-colors duration-200`}
             />
@@ -113,7 +113,7 @@ export function Header() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`pl-10 pr-4 py-2 rounded-full ${theme === "light" ? "bg-white/90 focus:ring-amber-300" : "bg-gray-800/90 text-white focus:ring-gray-600"} text-sm w-56 md:w-64 focus:outline-none focus:ring-2 focus:bg-white dark:focus:bg-gray-800 shadow-sm transition-all duration-200 backdrop-blur-sm`}
             />
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -154,12 +154,12 @@ export function Header() {
                 : "bg-gradient-to-br from-blue-500 to-blue-700"
             } 
               rounded-full p-2 text-white hover:shadow-md transition-all duration-200 shadow-sm`}
-            onClick={() => window.open("https://hotelpatliputra.com/", "_blank")}
+            onClick={() => window.open("https://patliputracontinental.com/", "_blank")}
           >
             <Globe className="h-5 w-5 drop-shadow-sm" />
           </motion.button>
 
-          <motion.div className="relative notifications-container">
+          {/* <motion.div className="relative notifications-container">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -226,7 +226,7 @@ export function Header() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.div>
+          </motion.div> */}
         </div>
 
         <div className="flex items-center ml-3 relative group user-menu-container">
