@@ -97,9 +97,15 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
       >
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="bg-gold text-white p-2 rounded-lg">
-              <Building className="h-5 w-5" />
-            </div>
+         <div className="bg-white/90  flex items-center justify-center" style={{width: 100, height: 100}}>
+         <img src="/hotel-patliputra-logo.png"  className="object-contain" alt="Hotel Patliputra Continental Logo"
+                         width={80}
+                         height={80}>
+         </img>
+                     
+                        
+               
+                     </div>
             <div className="font-bold text-xl text-gray-900">HPC</div>
           </div>
         )}
@@ -115,8 +121,8 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
       <div className="p-4 border-b border-gray-100">
         <div className={`flex ${collapsed ? "justify-center" : "items-center gap-3"}`}>
           <Avatar className="h-10 w-10 border-2 border-gold/20">
-            <AvatarImage src="/diverse-group-city.png" alt="User" />
-            <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+            {/* <AvatarImage src="/diverse-group-city.png" alt="User" /> */}
+            <AvatarFallback>{user.name.substring(0, 1).toUpperCase()}</AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div>

@@ -209,7 +209,7 @@ export default function BookingsPage() {
 
       console.log(`Deleting booking ${bookingId}`)
 
-      const response = await fetch(`${API_ROUTES.bookings}/${bookingId}`, {
+      const response = await fetch(`${API_ROUTES.bookings.bookingDetails}/${bookingId}`, {
         method: "DELETE",
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -595,7 +595,7 @@ export default function BookingsPage() {
         throw new Error("Not authenticated")
       }
 
-      const response = await fetch(`${API_ROUTES.bookings}/${booking.bookingId}`, {
+      const response = await fetch(`${API_ROUTES.bookings.bookingDetails}/${booking.bookingId}`, {
         method: "GET",
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -678,7 +678,7 @@ export default function BookingsPage() {
 
       console.log(`Updating booking ${editedBooking.bookingId} with data:`, updateData)
 
-      const response = await fetch(`${API_ROUTES.bookings}/${editedBooking.bookingId}`, {
+      const response = await fetch(`${API_ROUTES.bookings.bookingDetails}/${editedBooking.bookingId}`, {
         method: "PUT",
         headers: {
           'Authorization': `Bearer ${token}`,

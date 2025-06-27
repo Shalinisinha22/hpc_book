@@ -173,7 +173,7 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">Welcome back, DG Crux</p>
+              {/* <p className="text-gray-500 dark:text-gray-400 mt-1">Welcome back, DG Crux</p> */}
             </div>
           </div>
 

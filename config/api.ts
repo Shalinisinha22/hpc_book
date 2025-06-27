@@ -9,7 +9,8 @@ export const API_ROUTES = {
   promocodes: `${API_BASE_URL}/api/v1/promocodes`,
   bookings: {
     all: `${API_BASE_URL}/api/v1/bookings`,
-    cancelled: `${API_BASE_URL}/api/v1/bookings/cancelled`
+    cancelled: `${API_BASE_URL}/api/v1/bookings/cancelled`,
+    bookingDetails:`${API_BASE_URL}/api/v1/bookings`, 
   },
   setRoomUnavilable: `${API_BASE_URL}/api/v1/rooms/unavailable`,
   members:`${API_BASE_URL}/api/v1/users`,

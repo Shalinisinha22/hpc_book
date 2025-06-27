@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React,{ useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Printer, Info, User, Mail, Phone, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -10,10 +10,31 @@ import { Sidebar } from "@/components/sidebar"
 import { API_ROUTES } from "@/config/api"
 import { toast } from "@/components/ui/use-toast"
 
-export default function BookingDetailsPage({ params }) {
+// Define the booking interface based on the API response
+interface Booking {
+  confirmation?: string;
+  bookingId: string;
+  fullName?: string;
+  name?: string;
+  email: string;
+  phone?: string;
+  contact?: string;
+  bookingDate?: string;
+  createdAt?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
+  noOfRooms?: number;
+  noOfGuests?: { adults: number; children: number };
+  paymentStatus: string;
+  status: string;
+  totalPrice?: number;
+  specialRequest?: string;
+}
+
+export default function BookingDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const { id } = params
-  const [booking, setBooking] = useState(null)
+  const { id } = params;
+  const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Fetch booking details from API
@@ -25,7 +46,7 @@ export default function BookingDetailsPage({ params }) {
         throw new Error("Not authenticated")
       }
 
-      const response = await fetch(`${API_ROUTES.bookings}/${id}`, {
+      const response = await fetch(`${API_ROUTES.bookings.bookingDetails}/${id}`, {
         method: "GET",
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -66,12 +87,13 @@ export default function BookingDetailsPage({ params }) {
         phone: "N/A",
         createdAt: new Date().toISOString(),
         paymentStatus: "unknown",
-        checkInDate: null,
-        checkOutDate: null,
+        status: "unknown",
+        checkInDate: undefined,
+        checkOutDate: undefined,
         noOfRooms: 0,
         noOfGuests: { adults: 0, children: 0 },
         totalPrice: 0,
-        specialRequest: ""
+        specialRequest: "",
       })
     } finally {
       setLoading(false)
@@ -81,6 +103,36 @@ export default function BookingDetailsPage({ params }) {
   useEffect(() => {
     fetchBookingDetails()
   }, [id])
+
+  // Print handler for receipt
+  const handlePrintReceipt = () => {
+    const style = document.createElement("style")
+    style.innerHTML = `
+      @media print {
+        body * { visibility: hidden !important; }
+        .print-receipt, .print-receipt * { visibility: visible !important; }
+        .print-receipt { position: absolute; left: 0; top: 0; width: 100vw; background: #fff; padding: 32px 24px; min-height: 100vh; }
+        .no-print { display: none !important; }
+        @page { size: A4; margin: 18mm 12mm; }
+        .receipt-header { border-bottom: 2px solid #e5e7eb; margin-bottom: 24px; padding-bottom: 16px; }
+        .receipt-logo { margin-bottom: 8px; }
+        .receipt-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+        .receipt-address { font-size: 0.95rem; color: #555; margin-bottom: 2px; }
+        .receipt-table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+        .receipt-table th, .receipt-table td { border: 1px solid #e5e7eb; padding: 8px 12px; font-size: 1rem; }
+        .receipt-table th { background: #f3f4f6; font-weight: 600; }
+        .receipt-footer { margin-top: 32px; font-size: 0.95rem; color: #888; text-align: center; }
+      }
+    `
+    document.head.appendChild(style)
+    const receiptSection = document.querySelector('.print-receipt')
+    if (receiptSection) receiptSection.classList.add('print-receipt')
+    window.print()
+    setTimeout(() => {
+      document.head.removeChild(style)
+      if (receiptSection) receiptSection.classList.remove('print-receipt')
+    }, 1000)
+  }
 
   if (loading) {
     return (
@@ -103,282 +155,346 @@ export default function BookingDetailsPage({ params }) {
 
       {/* Main Content */}
       <div className="flex-1">
-        <PageHeader />
+        <PageHeader heading="Booking Details" />
 
         <main className="p-4 md:p-6 booking-details-content">
-          <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900">Booking Details</h1>
-              <Info className="h-5 w-5 text-orange-500" />
+          {/* Show loading or error if booking is not loaded */}
+          {!booking ? (
+            <div className="flex flex-col items-center justify-center h-96">
+              <div className="text-gray-500 text-lg mb-2">Booking not found or failed to load.</div>
+              <div className="text-gray-400 text-sm">Please check the booking ID or try again later.</div>
             </div>
-            <Button
-              className="mt-2 sm:mt-0 bg-gold hover:bg-gold-dark"
-              onClick={() => {
-                // Create a print-specific stylesheet
-                const style = document.createElement("style")
-                style.innerHTML = `
-                  @media print {
-                    body * {
-                      visibility: hidden;
-                    }
-                    .invoice-section, .invoice-section * {
-                      visibility: visible;
-                    }
-                    .invoice-section {
-                      position: absolute;
-                      left: 0;
-                      top: 0;
-                      width: 100%;
-                      padding: 20px;
-                      background-color: white;
-                    }
-                    @page {
-                      size: auto;
-                      margin: 10mm;
-                    }
-                    .no-print {
-                      display: none !important;
-                    }
-                    /* Invoice-specific print styles */
-                    .invoice-section table {
-                      width: 100%;
-                      border-collapse: collapse;
-                    }
-                    .invoice-section th, .invoice-section td {
-                      padding: 8px;
-                      text-align: left;
-                    }
-                    .invoice-section .bg-orange-100, .invoice-section .bg-orange-200, .invoice-section .bg-gray-100 {
-                      background-color: white !important;
-                      border: 1px solid #ddd;
-                    }
-                    .invoice-section .text-gold {
-                      color: #000 !important;
-                      font-weight: bold;
-                    }
-                  }
-                `
-                document.head.appendChild(style)
-
-                // Add print class to the invoice section
-                const invoiceSection = document.querySelector(".bg-white.rounded-lg.shadow-sm.p-6.mb-6")
-                if (invoiceSection) {
-                  invoiceSection.classList.add("invoice-section")
-                }
-
-                // Add no-print class to buttons and other elements
-                const noPrintElements = document.querySelectorAll(
-                  ".sidebar, .page-header, button, .grid.grid-cols-1.md\\:grid-cols-3",
-                )
-                noPrintElements.forEach((el) => {
-                  el.classList.add("no-print")
-                })
-
-                // Print and then clean up
-                window.print()
-
-                // Remove the style and classes after printing
-                setTimeout(() => {
-                  document.head.removeChild(style)
-                  if (invoiceSection) {
-                    invoiceSection.classList.remove("invoice-section")
-                  }
-                  noPrintElements.forEach((el) => {
-                    el.classList.remove("no-print")
-                  })
-                }, 1000)
-              }}
-            >
-              <Printer className="mr-2 h-4 w-4" />
-              PRINT
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {/* Guest Details */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Guest Details</h2>
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <div className="w-8 text-gray-400">
-                    <User className="h-5 w-5" />
+          ) : (
+            <>
+              {/* Professional Print Receipt Section */}
+              <div className="receipt-section bg-white rounded-lg shadow-md p-8 mb-8 border border-gray-200 relative">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+                  <div className="flex items-center mb-4 md:mb-0">
+                    <Image
+                      src="/hotel-patliputra-logo.png"
+                      alt="Hotel Patliputra Continental Logo"
+                      width={120}
+                      height={60}
+                      className="mr-4"
+                    />
+                    <div className="ml-2">
+                      <div className="font-bold text-lg text-gray-900">Hotel Patliputra Continental</div>
+                      <div className="text-gray-600 text-sm">AIIMS Road, Walmi, Patna Pin-801505</div>
+                      <div className="text-gray-600 text-xs">Email: reservations@hpcpatna.com | PAN: AAJCR9703K | GSTIN: 10AAJCR9703K1ZA | SAC CODE: 996311</div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <div className="text-gray-500">:</div>
-                  </div>
-                  <div className="flex-[2]">
-                    <div className="text-gray-700">{booking.fullName}</div>
+                  <div className="text-right">
+                    <div className="text-gold text-xl font-semibold">Booking Receipt</div>
+                    <div className="text-xs text-gray-500">Date: {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : '-'}</div>
+                    <div className="text-xs text-gray-500">Booking ID: {booking.bookingId || '-'}</div>
                   </div>
                 </div>
-
-                <div className="flex items-center">
-                  <div className="w-8 text-gray-400">
-                    <Mail className="h-5 w-5" />
+                <hr className="my-4 border-gray-200" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                  <div>
+                    <div className="font-semibold text-gray-800 mb-2">Guest Information</div>
+                    <table className="w-full text-sm">
+                      <tbody>
+                        <tr>
+                          <td className="py-1 pr-2 text-gray-600">Name</td>
+                          <td className="py-1 font-medium text-gray-900">{booking.fullName || '-'}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 pr-2 text-gray-600">Phone</td>
+                          <td className="py-1">{booking.phone || '-'}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 pr-2 text-gray-600">Email</td>
+                          <td className="py-1">{booking.email || '-'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                  <div className="flex-1">
-                    <div className="text-gray-500">:</div>
-                  </div>
-                  <div className="flex-[2]">
-                    <div className="text-gray-700">{booking.email}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="w-8 text-gray-400">
-                    <Phone className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-gray-500">:</div>
-                  </div>
-                  <div className="flex-[2]">
-                    <div className="text-gray-700">{booking.phone}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Booking Details */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Booking Details</h2>
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">Booking ID</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">{booking.bookingId}</div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">Check-in Date</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">
-                    {booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A'}
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">Check-out Date</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">
-                    {booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A'}
+                  <div>
+                    <div className="font-semibold text-gray-800 mb-2">Booking Information</div>
+                    <table className="w-full text-sm">
+                      <tbody>
+                        <tr>
+                          <td className="py-1 pr-2 text-gray-600">Check-in</td>
+                          <td className="py-1">{booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A'}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 pr-2 text-gray-600">Check-out</td>
+                          <td className="py-1">{booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A'}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 pr-2 text-gray-600">Rooms</td>
+                          <td className="py-1">{booking.noOfRooms ?? '-'}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 pr-2 text-gray-600">Guests</td>
+                          <td className="py-1">Adults: {booking.noOfGuests?.adults ?? 0}, Children: {booking.noOfGuests?.children ?? 0}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">Booking Date</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">{new Date(booking.createdAt).toLocaleDateString()}</div>
+                <div className="mb-4">
+                  <div className="font-semibold text-gray-800 mb-2">Payment Summary</div>
+                  <table className="w-full text-sm">
+                    <tbody>
+                      <tr>
+                        <td className="py-1 pr-2 text-gray-600">Total Price</td>
+                        <td className="py-1 font-medium text-gray-900">₹{booking.totalPrice?.toLocaleString() ?? 0}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-1 pr-2 text-gray-600">Payment Status</td>
+                        <td className="py-1">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            booking.paymentStatus === 'paid'
+                              ? 'bg-green-100 text-green-800'
+                              : booking.paymentStatus === 'pending'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {booking.paymentStatus || '-'}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-1 pr-2 text-gray-600">Status</td>
+                        <td className="py-1">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            booking.status === 'confirmed'
+                              ? 'bg-green-100 text-green-800'
+                              : booking.status === 'completed'
+                              ? 'bg-blue-100 text-blue-800'
+                              : booking.status === 'canceled'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {booking.status || 'pending'}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">No. of Rooms</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">{booking.noOfRooms}</div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">Guests</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">
-                    Adults: {booking.noOfGuests?.adults || 0}, Children: {booking.noOfGuests?.children || 0}
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">Total Price</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">₹{booking.totalPrice?.toLocaleString() || 0}</div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">Payment Status</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      booking.paymentStatus === 'paid' 
-                        ? 'bg-green-100 text-green-800' 
-                        : booking.paymentStatus === 'pending'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {booking.paymentStatus}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="w-32 text-gray-500">Status</div>
-                  <div className="w-4 text-gray-500">:</div>
-                  <div className="flex-1 text-gray-700">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      booking.status === 'confirmed' 
-                        ? 'bg-green-100 text-green-800' 
-                        : booking.status === 'completed'
-                        ? 'bg-blue-100 text-blue-800'
-                        : booking.status === 'canceled'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {booking.status || 'pending'}
-                    </span>
-                  </div>
-                </div>
-
                 {booking.specialRequest && (
-                  <div className="flex items-start">
-                    <div className="w-32 text-gray-500">Special Request</div>
-                    <div className="w-4 text-gray-500">:</div>
-                    <div className="flex-1 text-gray-700">{booking.specialRequest}</div>
+                  <div className="mb-2">
+                    <div className="font-semibold text-gray-800">Special Request</div>
+                    <div className="text-gray-700 text-sm">{booking.specialRequest}</div>
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-
-          {/* Booking Summary Section */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <div className="flex flex-col md:flex-row justify-between mb-8">
-              <div className="mb-4 md:mb-0">
-                <div className="flex items-center mb-4">
-                  <Image
-                          src="/hotel-patliputra-logo.png"
-                          alt="Hotel Patliputra Continental Logo"
-                    width={120}
-                    height={60}
-                    className="mr-2"
-                  />
+                <div className="mt-6 text-xs text-gray-500 text-center">
+                  This is a computer-generated receipt. For queries, contact reservations@hpcpatna.com
                 </div>
-                <div className="text-gray-700 text-sm">
-                  <div className="font-semibold mb-2">BOOKING DETAILS:</div>
-                  <div className="font-medium">{booking.fullName}</div>
-                  <div>Phone: {booking.phone}</div>
-                  <div>Email: {booking.email}</div>
-                  <div>Payment Status: {booking.paymentStatus}</div>
-                  <div>Status: {booking.status || 'pending'}</div>
-                  <div>Total Price: ₹{booking.totalPrice?.toLocaleString() || 0}</div>
-                </div>
+                <Button
+                  className="absolute top-4 right-4 print:hidden bg-gold hover:bg-gold-dark"
+                  onClick={() => {
+                    // Print only the receipt section
+                    const style = document.createElement("style")
+                    style.innerHTML = `
+                      @media print {
+                        body * { visibility: hidden !important; }
+                        .receipt-section, .receipt-section * { visibility: visible !important; }
+                        .receipt-section { position: absolute; left: 0; top: 0; width: 100vw; background: #fff; box-shadow: none; border: none; }
+                        .print\\:hidden, .print\:hidden { display: none !important; }
+                      }
+                    `
+                    document.head.appendChild(style)
+                    window.print()
+                    setTimeout(() => { document.head.removeChild(style) }, 1000)
+                  }}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Receipt
+                </Button>
               </div>
 
-              <div className="text-right">
-                <div className="text-gold text-xl font-semibold mb-4">
-                  Booking ID: {booking.bookingId}
-                </div>
-                <div className="text-sm text-gray-700">
-                  <div>Booking Date: {new Date(booking.createdAt).toLocaleDateString()}</div>
-                  <div>Check-in: {booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A'}</div>
-                  <div>Check-out: {booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A'}</div>
-                  <div>Rooms: {booking.noOfRooms} | Guests: {booking.noOfGuests?.adults || 0} Adults, {booking.noOfGuests?.children || 0} Children</div>
-                </div>
-              </div>
-            </div>
+              {/* Booking Details & Guest Details (screen only, not in print) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 print:hidden">
+                {/* Guest Details */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Guest Details</h2>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <div className="w-8 text-gray-400">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-gray-500">:</div>
+                      </div>
+                      <div className="flex-[2]">
+                        <div className="text-gray-700">{booking.fullName}</div>
+                      </div>
+                    </div>
 
-            <div className="mt-8 text-center text-xs text-gray-500">
-              <div className="mb-1">AIIMS Road, Walmi, Patna Pin-801505</div>
-              <div className="mb-1">
-                Email:reservations@theroyalbihar.com|PAN : AAJCR9703K | GSTIN : 10AAJCR9703K1ZA | SAC CODE : 996311
+                    <div className="flex items-center">
+                      <div className="w-8 text-gray-400">
+                        <Mail className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-gray-500">:</div>
+                      </div>
+                      <div className="flex-[2]">
+                        <div className="text-gray-700">{booking.email}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-8 text-gray-400">
+                        <Phone className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-gray-500">:</div>
+                      </div>
+                      <div className="flex-[2]">
+                        <div className="text-gray-700">{booking.phone}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Booking Details */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Booking Details</h2>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">Booking ID</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">{booking.bookingId}</div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">Check-in Date</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">
+                        {booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A'}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">Check-out Date</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">
+                        {booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A'}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">Booking Date</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">{booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : "-"}</div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">No. of Rooms</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">{booking.noOfRooms}</div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">Guests</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">
+                        Adults: {booking.noOfGuests?.adults || 0}, Children: {booking.noOfGuests?.children || 0}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">Total Price</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">₹{booking.totalPrice?.toLocaleString() || 0}</div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">Payment Status</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          booking.paymentStatus === 'paid' 
+                            ? 'bg-green-100 text-green-800' 
+                            : booking.paymentStatus === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {booking.paymentStatus}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div className="w-32 text-gray-500">Status</div>
+                      <div className="w-4 text-gray-500">:</div>
+                      <div className="flex-1 text-gray-700">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          booking.status === 'confirmed' 
+                            ? 'bg-green-100 text-green-800' 
+                            : booking.status === 'completed'
+                            ? 'bg-blue-100 text-blue-800'
+                            : booking.status === 'canceled'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {booking.status || 'pending'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {booking.specialRequest && (
+                      <div className="flex items-start">
+                        <div className="w-32 text-gray-500">Special Request</div>
+                        <div className="w-4 text-gray-500">:</div>
+                        <div className="flex-1 text-gray-700">{booking.specialRequest}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>This booking confirmation was generated automatically.</div>
-            </div>
-          </div>
+
+              {/* Booking Summary Section (screen only, not in print) */}
+              <div className="bg-white rounded-lg shadow-sm p-6 mb-6 print:hidden">
+                <div className="flex flex-col md:flex-row justify-between mb-8">
+                  <div className="mb-4 md:mb-0">
+                    <div className="flex items-center mb-4">
+                      <Image
+                              src="/hotel-patliputra-logo.png"
+                              alt="Hotel Patliputra Continental Logo"
+                        width={120}
+                        height={60}
+                        className="mr-2"
+                      />
+                    </div>
+                    <div className="text-gray-700 text-sm">
+                      <div className="font-semibold mb-2">BOOKING DETAILS:</div>
+                      <div className="font-medium">{booking.fullName}</div>
+                      <div>Phone: {booking.phone}</div>
+                      <div>Email: {booking.email}</div>
+                      <div>Payment Status: {booking.paymentStatus}</div>
+                      <div>Status: {booking.status || 'pending'}</div>
+                      <div>Total Price: ₹{booking.totalPrice?.toLocaleString() || 0}</div>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-gold text-xl font-semibold mb-4">
+                      Booking ID: {booking.bookingId}
+                    </div>
+                    <div className="text-sm text-gray-700">
+                      <div>Booking Date: {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : "-"}</div>
+                      <div>Check-in: {booking.checkInDate ? new Date(booking.checkInDate).toLocaleDateString() : 'N/A'}</div>
+                      <div>Check-out: {booking.checkOutDate ? new Date(booking.checkOutDate).toLocaleDateString() : 'N/A'}</div>
+                      <div>Rooms: {booking.noOfRooms} | Guests: {booking.noOfGuests?.adults || 0} Adults, {booking.noOfGuests?.children || 0} Children</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 text-center text-xs text-gray-500">
+                  <div className="mb-1">AIIMS Road, Walmi, Patna Pin-801505</div>
+                  <div className="mb-1">
+                    Email:reservations@hpcpatna.com|PAN : AAJCR9703K | GSTIN : 10AAJCR9703K1ZA | SAC CODE : 996311
+                  </div>
+                  <div>This booking confirmation was generated automatically.</div>
+                </div>
+              </div>
+            </>
+          )}
         </main>
       </div>
     </div>

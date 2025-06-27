@@ -59,7 +59,7 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-500 mt-1">Welcome back, DG Crux</p>
+              {/* <p className="text-gray-500 mt-1">Welcome back, DG Crux</p> */}
             </div>
             <div className="flex items-center gap-3 w-full md:w-auto">
               <DateRangePicker dateRange={dateRange} setDateRange={setDateRange} />
@@ -115,7 +115,7 @@ export default function Dashboard() {
               <TabsList className="bg-gray-100">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="bookings">Bookings</TabsTrigger>
-                <TabsTrigger value="revenue">Revenue</TabsTrigger>
+                {/* <TabsTrigger value="revenue">Revenue</TabsTrigger> */}
               </TabsList>
               <Button variant="ghost" size="sm" className="text-gray-500">
                 <MoreHorizontal className="h-4 w-4 mr-2" />

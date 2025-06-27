@@ -207,7 +207,7 @@ export default function MembersPage() {
         printContent += `
         <div class="member-container">
           <div class="header">
-            <div class="logo">The Royal Bihar</div>
+            <div class="logo">Hotel Patliputra Continental</div>
             <div>Member ID: ${member._id}</div>
           </div>
 
@@ -395,7 +395,7 @@ export default function MembersPage() {
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Members List - The Royal Bihar</title>
+          <title>Members List - Hotel Patliputra Continental</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -468,7 +468,7 @@ export default function MembersPage() {
         </head>
         <body>
           <div class="header">
-            <div class="logo">The Royal Bihar</div>
+            <div class="logo">Hotel Patliputra Continental</div>
             <div class="title">Members List</div>
             <div class="subtitle">Complete list of registered members</div>
             <div class="date-time">Generated on: ${currentDate} at ${currentTime}</div>
@@ -510,7 +510,7 @@ export default function MembersPage() {
           </div>
 
           <div class="footer">
-            <p>This is a system-generated report from The Royal Bihar Hotel Management System.</p>
+            <p>This is a system-generated report from Hotel Patliputra Continental Hotel Management System.</p>
             <p>For any queries, please contact the system administrator.</p>
           </div>
 
