@@ -285,7 +285,7 @@ export default function BookingDetailsPage({ params }: { params: { id: string } 
                   This is a computer-generated receipt. For queries, contact reservations@hpcpatna.com
                 </div>
                 <Button
-                  className="absolute top-4 right-4 print:hidden bg-gold hover:bg-gold-dark"
+                  className="absolute bottom-5 right-4 print:hidden bg-gold hover:bg-gold-dark"
                   onClick={() => {
                     // Print only the receipt section
                     const style = document.createElement("style")
