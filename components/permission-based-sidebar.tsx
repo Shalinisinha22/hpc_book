@@ -9,6 +9,7 @@ import { useAuthStore } from "@/lib/auth-store"
 import { Building } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { mainNavItems, hotelManagementItems,  otherItems, type SidebarItem } from "@/config/sidebar-config"
+import type { ReactNode } from "react"
 
 const sidebarTransition = "transition-all duration-300 ease-in-out"
 
@@ -90,8 +91,17 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
 
   return (
     <aside
-      className={`${collapsed ? "w-16" : "w-64"} bg-white flex-shrink-0 flex flex-col h-screen overflow-y-auto border-r border-gray-200 sticky top-0 transition-width duration-300 ease-in-out ${className}`}
+      className={`${collapsed ? "w-16" : "w-64"} bg-white flex-shrink-0 flex flex-col h-screen border-r border-gray-200 sticky top-0 transition-width duration-300 ease-in-out ${className}`}
+      style={{
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        scrollbarWidth: 'none', // Firefox
+        msOverflowStyle: 'none', // IE/Edge
+      }}
     >
+      <style>{`
+        aside::-webkit-scrollbar { display: none; }
+      `}</style>
       <div
         className={`p-4 border-b border-gray-100 flex ${collapsed ? "justify-center" : "justify-between"} items-center`}
       >
@@ -243,7 +253,13 @@ export function PermissionBasedSidebar({ className = "", onCollapsedChange = (co
   )
 }
 
-function NavItem({ icon, label, active = false, href = "#", collapsed = false }) {
+function NavItem({ icon, label, active = false, href = "#", collapsed = false }: {
+  icon: ReactNode,
+  label: string,
+  active?: boolean,
+  href?: string,
+  collapsed?: boolean
+}) {
   const className = `flex ${collapsed ? "justify-center" : "items-center gap-3"} px-3 py-2 rounded-lg text-sm ${
     active ? "bg-gold/10 text-gold font-medium" : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
   }`
@@ -273,7 +289,14 @@ function NavItem({ icon, label, active = false, href = "#", collapsed = false })
   )
 }
 
-function CollapsibleNavItem({ icon, label, active = false, activeItem = "", children = [], collapsed = false }) {
+function CollapsibleNavItem({ icon, label, active = false, activeItem = "", children = [], collapsed = false }: {
+  icon: ReactNode,
+  label: string,
+  active?: boolean,
+  activeItem?: string,
+  children?: SidebarItem[],
+  collapsed?: boolean
+}) {
   const [isOpen, setIsOpen] = useState(active || children.some((child) => child.label === activeItem))
 
   if (children.length === 0) {
